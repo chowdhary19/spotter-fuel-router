@@ -18,7 +18,7 @@ uv run gunicorn config.wsgi:application --bind 127.0.0.1:8765 \
 
 Open **http://127.0.0.1:8765/**. No database or paid API key is needed. Preparation requires the assessment CSV and internet access to three official station directories; request-time routing uses the free OSRM service. The public repository excludes the employer's CSV and commercial station feeds and derived catalogs. [Data preparation and provenance](docs/data.md) explains how to rebuild them locally.
 
-Restart the server after rebuilding data: reference catalogs are cached in process. `GET /health/` checks local data readiness without calling the routing provider.
+Restart the server after rebuilding data: reference catalogs are cached in process. `GET /health/` checks local data readiness without calling the routing provider. Wait for it to report `ready` before sending demo traffic; cold initialization can take several seconds.
 
 ## API contract
 

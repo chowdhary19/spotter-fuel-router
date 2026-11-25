@@ -8,6 +8,14 @@ On the reviewed local working tree, **2,030 Python tests and 710 subtests passed
 
 Rebuilding from the explicitly saved source cache reproduced `stations.json` and `station_coordinates.csv` byte-for-byte at the current 1,394-station count. This confirms reproduction from those inputs; a future live feed can differ.
 
+## Published revision and runtime smoke
+
+The code revision `f683cac1902e17f46b20be07ed47c7799e3e9464` passed [GitHub CI](https://github.com/chowdhary19/spotter-fuel-router/actions/runs/45617457269). A clean archive without the private station files also passed 2,030 tests and 710 subtests. Its additional warnings concerned uncollected static files in that test-only archive; the documented setup and CI both collect static files.
+
+The rebuilt Docker image passed readiness (1,394 stations), home-page, static-JavaScript and malformed-input checks. A five-second first-health timeout was too short during observed cold initialization. A subsequent container run returned ready in 6.565 seconds, then the home page in 36.6 ms, static JavaScript in 7.6 ms and an invalid-location JSON response in 10.5 ms. These are local startup/smoke observations, not route latency or a production SLA. Wait for `/health/` to report `ready`; a listening Gunicorn process is not proof that reference data has loaded. The temporary smoke container was removed.
+
+The browser displayed the revised Chicago–Los Angeles road line and five station markers. A subsequent invalid-city request cleared the preceding route and totals, and a valid request restored them.
+
 ## Offline checks
 
 ```sh
