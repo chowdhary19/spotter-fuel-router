@@ -73,7 +73,7 @@ OSRM reports lengths of its fastest paths, not every possible road alternative. 
 | Few free routing calls | One call without purchases; three with matrix planning; zero for cache hits; no API key |
 | Fast responses | Local reference lookup, bounded matrix/search, cache, bounded provider work; latency depends on the free service |
 | Latest stable Django | Django 6.1.3 pinned and verified as of November 25, 2026 |
-| GitHub and Loom submission | Repository plus an actual Loom recording of **no more than five minutes**; [recording guide](docs/walkthrough.md) included |
+| GitHub and Loom submission | Repository plus an actual Loom recording of **no more than five minutes** |
 
 ## Data coverage and assumptions
 

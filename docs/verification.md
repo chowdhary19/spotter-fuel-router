@@ -97,4 +97,4 @@ Report measured per-case server/client times with sample sizes and cold/warm sta
 
 ## Submission evidence
 
-The assessment requires both a GitHub repository URL and an actual Loom video **no longer than five minutes**. The [walkthrough guide](walkthrough.md) is preparation for that recording, not a substitute for it. Confirm that both links are accessible to the reviewer and that the recording shows the revision whose checks are reported.
+The assessment requires both a GitHub repository URL and an actual Loom video **no longer than five minutes**. Confirm that both links are accessible to the reviewer and that the recording shows the revision whose checks are reported.
