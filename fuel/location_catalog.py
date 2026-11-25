@@ -1,3 +1,9 @@
+"""Load local price/reference catalogs and resolve explicit US place identities.
+
+Common aliases are sourced and attached to Census GEOIDs during data preparation.
+Resolution preserves ambiguity rather than guessing between similarly named cities.
+"""
+
 import json
 import math
 import re
@@ -33,6 +39,7 @@ def station_catalog():
 
 @lru_cache(maxsize=1)
 def city_index():
+    """Index exact normalized, sourced place aliases and reviewed point corrections."""
     index = {}
     try:
         data = json.loads(settings.CITY_DATA_PATH.read_text())
@@ -59,6 +66,7 @@ def city_index():
 
 @lru_cache(maxsize=1)
 def us_boundary():
+    """Union the 50-state/DC Census polygons without a bounding-box approximation."""
     try:
         data = json.loads(settings.COUNTRY_DATA_PATH.read_text())
         if data["type"] == "FeatureCollection":
@@ -71,6 +79,7 @@ def us_boundary():
 
 
 def resolve_location(value, field):
+    """Resolve a city/state or validate literal coordinates; never fuzzy-match a city."""
     if isinstance(value, str):
         parts = value.rsplit(",", 1)
         if len(parts) != 2 or not parts[0].strip() or len(parts[1].strip()) != 2:

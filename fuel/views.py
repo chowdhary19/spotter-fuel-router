@@ -1,3 +1,5 @@
+"""Django HTTP endpoints for trip planning, cached maps and catalog readiness."""
+
 import json
 import logging
 import re
@@ -9,9 +11,9 @@ from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET
 
-from .catalog import city_index, station_catalog, us_boundary
 from .errors import PlanningError
-from .service import plan_request
+from .location_catalog import city_index, station_catalog, us_boundary
+from .route_planner import plan_request
 
 logger = logging.getLogger(__name__)
 

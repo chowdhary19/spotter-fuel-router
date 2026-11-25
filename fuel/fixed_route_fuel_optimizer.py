@@ -9,7 +9,7 @@ is not included in the cost of purchases made during this trip.
 from __future__ import annotations
 
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from decimal import Decimal, InvalidOperation, localcontext
 
 ZERO = Decimal("0")
@@ -235,3 +235,64 @@ def optimize_fuel(
             final_fuel_gallons=fuel_range / efficiency,
             total_cost_usd=cost,
         )
+
+
+def optimize_road_fuel(
+    stations: Iterable[tuple[str, Decimal, Decimal]],
+    total_distance_meters: Decimal,
+    *,
+    initial_fuel_gallons: Decimal = DEFAULT_TANK_GALLONS,
+    reserve_gallons: Decimal = ZERO,
+) -> FuelPlan:
+    """Verify a fixed road itinerary using exact cumulative provider metres.
+
+    Each station is (identifier, cumulative_meters, price_usd_per_gallon).
+    The caller must add road legs in metres before constructing these tuples.
+    The generic solver temporarily uses metre-valued distance fields and
+    16093.44 metres/gallon, so feasibility never divides by a recurring
+    metre-to-mile ratio. Returned distances are converted only for presentation;
+    all fuel quantities are already gallons and all costs are already dollars.
+    """
+    meter_stations = []
+    for station in stations:
+        if not isinstance(station, (tuple, list)) or len(station) != 3:
+            raise InvalidFuelInput("Road stations must be (identifier, cumulative metres, price)")
+        identifier, position, price = station
+        meter_stations.append(FuelStation(identifier, position, price))
+
+    def miles(meters):
+        with localcontext() as context:
+            context.prec = 60
+            return meters / Decimal("1609.344")
+
+    try:
+        raw = optimize_fuel(
+            meter_stations,
+            total_distance_meters,
+            initial_fuel_gallons=initial_fuel_gallons,
+            reserve_gallons=reserve_gallons,
+            mpg=Decimal("16093.44"),
+        )
+    except InfeasibleFuelPlan as exc:
+        # Preserve the public exception's mile-valued metadata as well.
+        raise InfeasibleFuelPlan(
+            str(exc),
+            start_miles=miles(exc.start_miles),
+            end_miles=miles(exc.end_miles),
+            available_range_miles=miles(exc.available_range_miles),
+            reserve_gallons=exc.reserve_gallons,
+        ) from exc
+    return replace(
+        raw,
+        total_distance_miles=miles(raw.total_distance_miles),
+        mpg=DEFAULT_MPG,
+        purchases=tuple(
+            replace(
+                purchase,
+                station=replace(
+                    purchase.station, distance_miles=miles(purchase.station.distance_miles)
+                ),
+            )
+            for purchase in raw.purchases
+        ),
+    )

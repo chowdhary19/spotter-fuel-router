@@ -1,0 +1,46 @@
+{
+  "metadata": {
+    "purpose": "Explicit common-name aliases for Census legal place names; no fuzzy matching or coordinate changes",
+    "reviewed_on": "2026-11-25",
+    "geonames_license_url": "https://creativecommons.org/licenses/by/4.0/",
+    "geonames_attribution": "Contains selected GeoNames names, https://www.geonames.org/, licensed CC BY 4.0. Aliases are linked to unchanged Census place records."
+  },
+  "places": [
+    {
+      "geoid": "1608830", "state": "ID", "census_name": "Boise City",
+      "aliases": ["Boise"],
+      "sources": ["https://www.geonames.org/5586437/"],
+      "evidence": "GeoNames primary name Boise includes Boise City as an alternate name."
+    },
+    {
+      "geoid": "4752006", "state": "TN", "census_name": "Nashville-Davidson",
+      "aliases": ["Nashville"],
+      "sources": ["https://www.geonames.org/4644585/", "https://www.nashville.gov/departments/council"],
+      "evidence": "GeoNames primary Nashville includes Nashville-Davidson; the municipal site identifies the consolidated government."
+    },
+    {
+      "geoid": "1349008", "state": "GA", "census_name": "Macon-Bibb County",
+      "aliases": ["Macon"],
+      "sources": ["https://www.geonames.org/4207400/", "https://www.maconbibb.us/wp-content/uploads/2023/07/Macon-Bibb-County-ACFR22-Final.pdf"],
+      "evidence": "The county financial report identifies consolidation of the City of Macon and Bibb County into Macon-Bibb County."
+    },
+    {
+      "geoid": "4873493", "state": "TX", "census_name": "Town of Pecos",
+      "aliases": ["Pecos", "Pecos City", "Town of Pecos City"],
+      "sources": ["https://www.pecostx.gov/165/City-Council", "https://directory.tml.org/profile/city/754"],
+      "evidence": "The municipality uses Town of Pecos City and the municipal league lists its mailing address as Pecos, TX."
+    },
+    {
+      "geoid": "1742184", "state": "IL", "census_name": "LaSalle",
+      "aliases": ["La Salle"],
+      "sources": ["https://www.lasalle-il.gov/", "https://www.lasalle-il.gov/community/businesses"],
+      "evidence": "The official city site uses both La Salle and LaSalle for the same municipality."
+    },
+    {
+      "geoid": "1754222", "state": "IL", "census_name": "North Utica",
+      "aliases": ["Utica"],
+      "sources": ["https://utica-il.gov/", "https://utica-il.gov/contact"],
+      "evidence": "The official village site identifies North Utica and uses Utica in its public name and postal address."
+    }
+  ]
+}

@@ -2,15 +2,17 @@
 
 from __future__ import annotations
 
+import json
 from copy import deepcopy
 from decimal import Decimal
 from unittest import TestCase
 from unittest.mock import Mock, patch
 
 import requests
+from urllib3.exceptions import ReadTimeoutError
 
 from fuel.errors import PlanningError
-from fuel.routing import METERS_PER_MILE, OSRMClient
+from fuel.routing_client import METERS_PER_MILE, OSRMClient
 
 POINTS = [(-100.0, 40.0), (-99.0, 40.0)]
 
@@ -33,19 +35,42 @@ def valid_payload():
     }
 
 
+def valid_matrix_payload():
+    return {
+        "code": "Ok",
+        "distances": [[0, 85000.1], [87000.2, 0]],
+        "sources": [{"location": list(point)} for point in POINTS],
+        "destinations": [{"location": list(point)} for point in POINTS],
+    }
+
+
 class OSRMClientTests(TestCase):
     def setUp(self):
-        self.http = self.enterContext(patch("fuel.routing.requests.get"))
-        self.sleep = self.enterContext(patch("fuel.routing.time.sleep"))
-        self.clock = self.enterContext(patch("fuel.routing.time.monotonic", return_value=100.0))
+        self.http = self.enterContext(patch("fuel.routing_client.requests.get"))
+        self.sleep = self.enterContext(patch("fuel.routing_client.time.sleep"))
+        self.clock = self.enterContext(
+            patch("fuel.routing_client.time.monotonic", return_value=100.0)
+        )
         self.lock = Mock()
         self.lock.acquire.return_value = True
-        self.enterContext(patch("fuel.routing._provider_lock", self.lock))
-        self.enterContext(patch("fuel.routing._last_call", 0.0))
+        self.enterContext(patch("fuel.routing_client._provider_lock", self.lock))
+        self.enterContext(patch("fuel.routing_client._last_call", 0.0))
         self.response = Mock()
         self.response.status_code = 200
+        self.response.headers = {}
         self.response.raise_for_status.return_value = None
         self.response.json.return_value = valid_payload()
+        self.raw_sent = False
+
+        def read1(_size, *, decode_content):
+            assert decode_content is True
+            if self.raw_sent:
+                return b""
+            self.raw_sent = True
+            return json.dumps(self.response.json()).encode()
+
+        self.response.raw.read1.side_effect = read1
+        self.response.close.side_effect = lambda: setattr(self, "raw_sent", False)
         self.http.return_value = self.response
         self.client = OSRMClient("https://routing.example.test/")
 
@@ -78,10 +103,19 @@ class OSRMClientTests(TestCase):
         )
         self.assertEqual(
             kwargs["params"],
-            {"overview": "full", "geometries": "geojson", "steps": "false"},
+            {
+                "overview": "full",
+                "geometries": "geojson",
+                "steps": "false",
+                "continue_straight": "false",
+            },
         )
         self.assertEqual(kwargs["timeout"], (3, 12))
+        self.assertIs(kwargs["allow_redirects"], False)
+        self.assertIs(kwargs["stream"], True)
+        self.assertEqual(kwargs["headers"]["Accept-Encoding"], "identity")
         self.assertIn("User-Agent", kwargs["headers"])
+        self.response.close.assert_called_once()
 
     def test_exact_three_call_budget_has_no_fourth_http_request(self):
         for _ in range(3):
@@ -106,7 +140,7 @@ class OSRMClientTests(TestCase):
         self.assertEqual(self.lock.release.call_count, 3)
 
     def test_rate_pacing_accounts_for_previous_dispatch_time(self):
-        with patch("fuel.routing._last_call", 99.5):
+        with patch("fuel.routing_client._last_call", 99.5):
             self.client.route(POINTS)
         self.sleep.assert_called_once()
         self.assertAlmostEqual(self.sleep.call_args.args[0], 0.55)
@@ -195,12 +229,12 @@ class OSRMClientTests(TestCase):
 
     def test_negative_or_nonfinite_distances_and_duration_are_rejected(self):
         for field in ("distance", "duration"):
-            for value in (-1, float("nan"), float("inf"), "not a number"):
+            for value in (-1, float("nan"), float("inf"), "not a number", True):
                 with self.subTest(field=field, value=value):
                     payload = valid_payload()
                     payload["routes"][0][field] = value
                     self.assert_invalid_response(payload)
-        for value in (-1, float("nan"), float("inf"), "not a number"):
+        for value in (-1, float("nan"), float("inf"), "not a number", True):
             with self.subTest(leg_distance=value):
                 payload = valid_payload()
                 payload["routes"][0]["legs"][0]["distance"] = value
@@ -268,3 +302,189 @@ class OSRMClientTests(TestCase):
                 self.assertEqual(caught.exception.code, "invalid_waypoints")
         self.http.assert_not_called()
         self.assertEqual(self.client.calls, 0)
+
+    def test_table_preserves_direction_and_decimal_distance_units(self):
+        self.response.json.return_value = valid_matrix_payload()
+        matrix = self.client.table(POINTS, radiuses=[5000, 500])
+        self.assertEqual(
+            matrix.distances_meters,
+            ((Decimal(0), Decimal("85000.1")), (Decimal("87000.2"), Decimal(0))),
+        )
+        self.assertEqual(matrix.input_points, tuple(POINTS))
+        self.assertEqual(matrix.source_waypoints, tuple(POINTS))
+        self.assertEqual(matrix.destination_waypoints, tuple(POINTS))
+        self.assertEqual(matrix.snapped_waypoints, tuple(POINTS))
+        self.assertEqual(matrix.size, 2)
+        args, kwargs = self.http.call_args
+        self.assertIn("/table/v1/driving/", args[0])
+        self.assertEqual(
+            kwargs["params"],
+            {
+                "annotations": "distance",
+                "sources": "all",
+                "destinations": "all",
+                "radiuses": "5000;500",
+            },
+        )
+        self.assertNotIn("fallback_speed", kwargs["params"])
+        self.assertEqual(self.client.calls, 1)
+
+    def test_unreachable_matrix_edges_remain_none_and_are_not_estimated(self):
+        payload = valid_matrix_payload()
+        payload["distances"][0][1] = None
+        self.response.json.return_value = payload
+        matrix = self.client.table(POINTS)
+        self.assertIsNone(matrix.distances_meters[0][1])
+        self.assertEqual(matrix.distances_meters[1][0], Decimal("87000.2"))
+
+    def test_matrix_estimated_fallback_cells_are_rejected(self):
+        payload = valid_matrix_payload()
+        payload["fallback_speed_cells"] = [[0, 1]]
+        self.response.json.return_value = payload
+        with self.assertRaises(PlanningError) as caught:
+            self.client.table(POINTS)
+        self.assertEqual(caught.exception.code, "invalid_routing_matrix")
+
+    def test_matrix_shape_and_distance_semantics_are_validated(self):
+        invalid = [
+            None,
+            [],
+            [[0, 10]],
+            [[0], [10, 0]],
+            [[0, -1], [10, 0]],
+            [[0, True], [10, 0]],
+            [[0, float("nan")], [10, 0]],
+            [[0, "not-distance"], [10, 0]],
+            [[None, 10], [10, 0]],
+            [[1, 10], [10, 0]],
+        ]
+        for distances in invalid:
+            with self.subTest(distances=distances):
+                payload = valid_matrix_payload()
+                payload["distances"] = distances
+                self.response.json.return_value = payload
+                with self.assertRaises(PlanningError) as caught:
+                    OSRMClient().table(POINTS)
+                self.assertEqual(caught.exception.code, "invalid_routing_matrix")
+
+    def test_matrix_source_and_destination_waypoints_must_be_compatible(self):
+        for field, value in (
+            ("sources", []),
+            ("destinations", [None, {"location": POINTS[1]}]),
+            ("destinations", [{"location": [-100.1, 40]}, {"location": POINTS[1]}]),
+            ("sources", [{"location": [181, 40]}, {"location": POINTS[1]}]),
+        ):
+            with self.subTest(field=field, value=value):
+                payload = valid_matrix_payload()
+                payload[field] = value
+                self.response.json.return_value = payload
+                with self.assertRaises(PlanningError) as caught:
+                    OSRMClient().table(POINTS)
+                self.assertEqual(caught.exception.code, "invalid_routing_matrix")
+
+    def test_small_waypoint_serialization_difference_is_retained_not_replaced(self):
+        payload = valid_matrix_payload()
+        payload["destinations"][0]["location"] = [-100.000001, 40]
+        self.response.json.return_value = payload
+        matrix = self.client.table(POINTS)
+        self.assertEqual(matrix.source_waypoints[0], POINTS[0])
+        self.assertEqual(matrix.destination_waypoints[0], (-100.000001, 40))
+
+    def test_route_and_table_share_one_three_request_budget(self):
+        self.client.route(POINTS)
+        self.response.json.return_value = valid_matrix_payload()
+        self.client.table(POINTS)
+        self.response.json.return_value = valid_payload()
+        self.client.route(POINTS, radiuses=[5000, 25])
+        self.assertEqual(self.http.call_args.kwargs["params"]["radiuses"], "5000;25")
+        with self.assertRaises(PlanningError) as caught:
+            self.client.table(POINTS)
+        self.assertEqual(caught.exception.code, "routing_budget_exhausted")
+        self.assertEqual(self.http.call_count, 3)
+
+    def test_table_cap_is_one_hundred_coordinates_and_ten_thousand_cells(self):
+        points = [(-100 + index * 0.001, 40) for index in range(100)]
+        payload = {
+            "code": "Ok",
+            "distances": [[abs(i - j) * 100 for j in range(100)] for i in range(100)],
+            "sources": [{"location": point} for point in points],
+            "destinations": [{"location": point} for point in points],
+        }
+        self.response.json.return_value = payload
+        self.assertEqual(self.client.table(points).size, 100)
+        with self.assertRaises(PlanningError) as caught:
+            self.client.table([*points, points[0]])
+        self.assertEqual(caught.exception.code, "invalid_waypoints")
+        self.assertEqual(self.http.call_count, 1)
+
+    def test_invalid_radiuses_fail_before_dispatch(self):
+        for radiuses in ([25], [25, -1], [25, True], [25, float("inf")], [25, None]):
+            with self.subTest(radiuses=radiuses):
+                with self.assertRaises(PlanningError) as caught:
+                    self.client.table(POINTS, radiuses=radiuses)
+                self.assertEqual(caught.exception.code, "invalid_radiuses")
+        self.http.assert_not_called()
+        self.assertEqual(self.client.calls, 0)
+
+    def test_structured_http_400_errors_keep_their_service_meaning(self):
+        self.response.status_code = 400
+        self.response.raise_for_status.side_effect = requests.HTTPError("400")
+        for code, expected in (
+            ("NoSegment", "no_road_route"),
+            ("NoTable", "no_road_route"),
+            ("NotImplemented", "routing_service_unsupported"),
+            ("TooBig", "routing_provider_limit"),
+        ):
+            with self.subTest(code=code):
+                self.response.json.return_value = {"code": code}
+                with self.assertRaises(PlanningError) as caught:
+                    OSRMClient().table(POINTS)
+                self.assertEqual(caught.exception.code, expected)
+        self.assertEqual(self.http.call_count, 4)
+
+    def test_redirect_is_rejected_without_reading_or_following_it(self):
+        self.response.status_code = 302
+        self.response.headers = {"Location": "https://other.example.test/"}
+        with self.assertRaises(PlanningError) as caught:
+            self.client.route(POINTS)
+        self.assertEqual(caught.exception.code, "routing_redirect_rejected")
+        self.http.assert_called_once()
+        self.response.raw.read1.assert_not_called()
+        self.response.close.assert_called_once()
+        self.lock.release.assert_called_once()
+
+    def test_content_length_over_cap_is_rejected_before_reading(self):
+        self.response.headers = {"Content-Length": "65"}
+        with patch("fuel.routing_client.MAX_RESPONSE_BYTES", 64):
+            with self.assertRaises(PlanningError) as caught:
+                self.client.route(POINTS)
+        self.assertEqual(caught.exception.code, "routing_response_too_large")
+        self.response.raw.read1.assert_not_called()
+        self.response.close.assert_called_once()
+
+    def test_streamed_body_cap_applies_without_content_length(self):
+        self.response.raw.read1.side_effect = [b"x" * 40, b"x" * 40]
+        with patch("fuel.routing_client.MAX_RESPONSE_BYTES", 64):
+            with self.assertRaises(PlanningError) as caught:
+                self.client.route(POINTS)
+        self.assertEqual(caught.exception.code, "routing_response_too_large")
+        self.assertEqual(self.response.raw.read1.call_count, 2)
+        self.response.close.assert_called_once()
+        self.lock.release.assert_called_once()
+
+    def test_elapsed_budget_is_checked_after_an_available_chunk(self):
+        self.clock.side_effect = [100, 100, 100, 100, 121]
+        with self.assertRaises(PlanningError) as caught:
+            self.client.route(POINTS)
+        self.assertEqual(caught.exception.code, "routing_deadline_exceeded")
+        self.assertEqual(caught.exception.status, 504)
+        self.response.close.assert_called_once()
+        self.lock.release.assert_called_once()
+
+    def test_raw_socket_timeout_releases_resources_and_is_typed(self):
+        self.response.raw.read1.side_effect = ReadTimeoutError(None, "/table", "timed out")
+        with self.assertRaises(PlanningError) as caught:
+            self.client.table(POINTS)
+        self.assertEqual(caught.exception.code, "routing_unavailable")
+        self.response.close.assert_called_once()
+        self.lock.release.assert_called_once()

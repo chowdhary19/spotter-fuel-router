@@ -23,6 +23,7 @@ from match_chain_locations import (
     LOVES_URL,
     PILOT_URL,
     TA_URL,
+    load_state_boundaries,
     loves_records,
     match_stations,
     pilot_records,
@@ -109,11 +110,19 @@ def extract_pilot_locations(html: str) -> list[dict]:
     raise ValueError("Unterminated embedded Pilot locations array")
 
 
-def prepare(fuel_csv: Path, cities_file: Path, source_dir: Path, output_dir: Path, offline: bool):
+def prepare(
+    fuel_csv: Path,
+    cities_file: Path,
+    source_dir: Path,
+    output_dir: Path,
+    offline: bool,
+    state_boundaries_file: Path = Path("data/us-boundary.geojson"),
+):
     stations, price_metadata = parse_prices(fuel_csv)
     cities = json.loads(cities_file.read_text())
     if not isinstance(cities.get("places"), list) or not cities["places"]:
         raise ValueError("Census place lookup is empty or invalid")
+    state_boundaries = load_state_boundaries(state_boundaries_file)
     source_dir.mkdir(parents=True, exist_ok=True)
     sources = {
         "pilot": (PILOT_URL, source_dir / "pilot-directory.html"),
@@ -148,7 +157,9 @@ def prepare(fuel_csv: Path, cities_file: Path, source_dir: Path, output_dir: Pat
     )
     if not official:
         raise ValueError("No usable official locations were parsed")
-    coordinates, audit = match_stations(stations, official, cities)
+    coordinates, audit = match_stations(
+        stations, official, cities, state_boundaries=state_boundaries
+    )
     if not coordinates:
         raise ValueError("No stations matched; source schema or coverage needs review")
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -172,6 +183,10 @@ def prepare(fuel_csv: Path, cities_file: Path, source_dir: Path, output_dir: Pat
     audit["sources"] = {
         "fuel_csv": {"filename": fuel_csv.name, "sha256": price_metadata["source_sha256"]},
         "cities": {"sha256": digest(cities_file), "underlying_source": cities["metadata"]},
+        "state_boundaries": {
+            "filename": state_boundaries_file.name,
+            "sha256": digest(state_boundaries_file),
+        },
         **provenance,
     }
     audit["coordinate_output"] = {
@@ -189,12 +204,20 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--fuel-csv", type=Path, required=True)
     parser.add_argument("--cities", type=Path, default=Path("data/cities.json"))
+    parser.add_argument("--state-boundaries", type=Path, default=Path("data/us-boundary.geojson"))
     parser.add_argument("--source-dir", type=Path, default=Path(".data-source-cache"))
     parser.add_argument("--output-dir", type=Path, default=Path("data"))
     parser.add_argument("--offline", action="store_true")
     args = parser.parse_args()
     try:
-        result = prepare(args.fuel_csv, args.cities, args.source_dir, args.output_dir, args.offline)
+        result = prepare(
+            args.fuel_csv,
+            args.cities,
+            args.source_dir,
+            args.output_dir,
+            args.offline,
+            args.state_boundaries,
+        )
     except (ValueError, KeyError, OSError, requests.RequestException) as exc:
         parser.error(str(exc))
     print(json.dumps(result, indent=2))

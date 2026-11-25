@@ -10,9 +10,9 @@ import pytest
 from django.test import Client, override_settings
 from shapely.geometry import Point
 
-from fuel.catalog import city_index, resolve_location, station_catalog, us_boundary
 from fuel.errors import PlanningError
 from fuel.geo import meters_between
+from fuel.location_catalog import city_index, resolve_location, station_catalog, us_boundary
 
 
 @pytest.fixture(autouse=True)
@@ -95,6 +95,34 @@ def test_unknown_city_does_not_silently_resolve_to_a_different_place():
         resolve_location("No Such Census City XYZ, TX", "start")
     assert caught.value.status == 400
     assert caught.value.code == "unknown_city"
+
+
+@pytest.mark.parametrize(
+    "name, state, geoid",
+    [
+        ("Boise", "ID", "1608830"),
+        ("Nashville", "TN", "4752006"),
+        ("Macon", "GA", "1349008"),
+        ("Pecos", "TX", "4873493"),
+        ("Pecos City", "TX", "4873493"),
+        ("La Salle", "IL", "1742184"),
+        ("Utica", "IL", "1754222"),
+    ],
+)
+def test_sourced_common_name_resolves_to_its_exact_census_identity(name, state, geoid):
+    location = resolve_location(f"{name}, {state}", "start")
+    assert location["geoid"] == geoid
+    place = next(iter(city_index()[(name.casefold(), state)].values()))
+    assert place["alias_sources"]
+    assert (location["latitude"], location["longitude"]) == (place["latitude"], place["longitude"])
+
+
+def test_sourced_aliases_remain_state_scoped_and_do_not_fuzzy_match():
+    assert resolve_location("Utica, NY", "start")["geoid"] != "1754222"
+    with pytest.raises(PlanningError, match="No US city match"):
+        resolve_location("Boise, TX", "start")
+    with pytest.raises(PlanningError, match="No US city match"):
+        resolve_location("Nashvile, TN", "start")
 
 
 @pytest.mark.parametrize(

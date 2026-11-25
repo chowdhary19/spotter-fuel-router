@@ -1,41 +1,51 @@
-# Four-minute walkthrough
+# Loom walkthrough: target 4 minutes 30 seconds
 
-Keep the recording below five minutes. Show the running application and the actual repository. The prepared Postman collection is in `docs/spotter.postman_collection.json`; the browser's API request/response panel is also a working API client.
+The assessment requires an actual Loom recording of **no more than five minutes**, showing the API, map and code. This guide is not the recording. Use values and test results from the current run; do not quote older measurements or claim nationwide completeness.
 
-## 0:00–0:30 — State the contract
+Before recording, prepare the source data, restart the single-worker server, run the checks in [verification.md](verification.md), and test a long route successfully on the current revision. Have the browser demo, Postman collection, repository, and terminal output open. Keep unrelated tabs, private messages, secrets, and signed URLs out of view. Do not wait through installation or the entire test suite on camera; show the actual completed output and its command.
 
-“This is a Django API for a vehicle with a 500-mile range at 10 miles per gallon. It takes US start and finish locations and returns a road route, fuel stops and itemized purchase costs. I made the starting tank explicit: it defaults to 50 gallons, and the total is new fuel purchases during the trip.”
+## 0:00–0:30: contract and assumptions
 
-## 0:30–1:30 — Demonstrate the actual API
+Show the README and API input.
 
-Run Chicago, IL → Los Angeles, CA. Show `distance_miles`, `fuel_stops`, `total_fuel_cost_usd`, `road_leg_distances_miles` and `performance` in the response. Open `map_url` or show the browser map and a station popup. Use the displayed values, since routing data can change.
+“This Django API plans a US road trip for a vehicle with a 500-mile range at 10 miles per gallon. It returns the route, fuel-stop locations and an itemized purchase plan. That gives us a 50-gallon tank. I made the starting fuel explicit: it defaults to a full tank, and the cost shown is fuel purchased during this trip.”
 
-“The selected stations are actual route waypoints. Fuel quantities are recalculated from the returned road legs. This run needed two routing calls. Repeating the request returns the cached plan with zero additional calls.”
+## 0:30–1:30: actual API and map
 
-Repeat the request. Then show Dallas → Houston: no purchase is required with the full initial tank, but consumed fuel is still reported. If time permits, show the prepared invalid-coordinate request returning a structured 400.
+Run a verified long route, for example Chicago to Los Angeles, through Postman or the browser request panel. Show `fuel_stops`, `total_fuel_cost_usd`, `road_leg_distances_miles`, `validation`, and `performance`. Open `map_url` and one fuel-stop popup.
 
-## 1:30–2:20 — Explain the difficult data decision
+“The API uses one call for the base road route, one directed distance table for station alternatives, and one final route through the selected waypoints. The final legs and road snaps are checked against what the optimizer used. This response reports the actual call count and selected-station scope.”
 
-Open `scripts/prepare_data.py` and the README's data table.
+Repeat the successful request and show the cache hit with zero new provider calls. If time permits, show a short full-tank trip: zero new purchases is valid even though fuel is consumed. Read the displayed result instead of promising a particular dollar amount or latency.
 
-“The CSV has no coordinates, and most addresses are highway exits. I didn't put stations at city centers. Preparation matches official chain identities and store numbers, rejects ambiguous matches, and records source hashes. This snapshot has 1,179 accepted stations. The rest are excluded, so a coverage failure is explicit.”
+## 1:30–2:15: station evidence and coverage
 
-“Some OPIS IDs have conflicting prices without dates or fuel grades. I preserve all quotes and use the maximum supplied quote as a documented conservative estimate.”
+Show the README data counts and `scripts/prepare_data.py`.
 
-## 2:20–3:15 — Show the core code
+“The supplied CSV has no coordinates and many addresses are highway exits. Preparation joins explicit official store identities to real station points and checks their state polygons. It also preserves every original price quote and source row. The current local catalog has 1,394 of 6,626 US stations. The remainder stay excluded rather than being placed at city centers.”
 
-Open `fuel/service.py`, then `fuel/optimizer.py`.
+“Quotes have no timestamps or fuel-grade field. I use the maximum observed quote as a stated conservative assumption. Some locations have no source prices at all, so I do not claim complete US coverage.”
 
-“The first route supplies a corridor. Candidate projection proposes an itinerary, and a second route validates the real station legs. There's one bounded repair attempt, so the request never silently exceeds three routing calls.”
+## 2:15–3:15: the optimization decision
 
-“For the fixed itinerary, buy enough to reach the first cheaper reachable station. Otherwise fill up, capped by the remaining trip and reserve. Fuel and money use Decimal arithmetic. This optimizes purchases on the selected route; it does not claim a globally cheapest road-network route.”
+Show `fuel/route_planner.py`, `fuel/station_candidates.py`, then `fuel/fuel_route_optimizer.py`. Location/reference loading is in `fuel/location_catalog.py`; bounded network handling is in `fuel/routing_client.py`.
 
-## 3:15–4:15 — Show evidence and close
+“The candidate stage uses a 75-mile corridor and caps the matrix at 62 stations, preserving geographic and price alternatives. Projection only chooses candidates. The optimizer uses directed road distances, so a cheaper pump with a long detour can lose to a more expensive pump on a shorter path.”
 
-Run `uv run --group data pytest -q` and show `tests/test_optimizer.py`'s independent exhaustive oracle. Show `docs/verification.md` briefly.
+“It searches exact critical fuel states, preserving transit waypoints and tank inventory. Then a separate fixed-route optimizer recomputes purchases from the final road legs. The optimality claim is limited to the selected graph and its provider segments, not every road or unlocated station in the country.”
 
-“The oracle enumerates feasible purchases using rational arithmetic, so it doesn't repeat the greedy implementation. Tests also exercise exact range boundaries, real-road recalculation through a mocked provider, reserves, failure responses and cache recovery. I tested several real routes and independently reconciled fuel balances and charge totals.”
+## 3:15–4:15: verification and failure behavior
 
-“The remaining limits are explicit: incomplete station coverage, undated prices, and a car routing profile rather than truck-specific restrictions. The repository includes setup commands, data preparation and the Postman collection.”
+Show the current completed test command/output and `tests/test_fuel_route_optimizer.py`. Show a structured invalid-input or coverage error without calling it a successful trip.
 
-Stop the recording. Verify that the shared Loom link opens for a reviewer without requiring access to your account. The assessment submission needs that link and the GitHub repository URL.
+“The independent oracle enumerates buying fuel and traversing edges on the original graph. It does not copy the optimizer's shortcut. Other tests check one-way roads, unavailable segments, exact range boundaries, partial purchases, reserve, source matching, and final-route consistency.”
+
+“The response includes data and optimization limitations. Road snapping checks proximity, not driveway legality or current pump availability. OSRM's car profile also does not establish commercial-truck legality.”
+
+## 4:15–4:30: close
+
+Show the setup commands and repository structure.
+
+“The repository includes reproducible setup, source audit scripts, the Postman collection, and verification instructions. The routing dependency is free and configurable. The remaining limits are incomplete station data, undated prices, and the bounded candidate search.”
+
+Stop before five minutes. Check the duration, playback and reviewer access to the shared Loom link. Submit the actual GitHub repository URL and actual Loom URL; do not substitute the guide or a written transcript.

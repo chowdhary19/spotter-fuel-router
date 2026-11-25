@@ -10,7 +10,7 @@ from django.test import Client, override_settings
 from shapely.geometry import box
 
 from fuel.errors import PlanningError
-from fuel.routing import METERS_PER_MILE, RoadRoute
+from fuel.routing_client import METERS_PER_MILE, RoadRoute
 
 
 @pytest.fixture
@@ -18,9 +18,9 @@ def api(monkeypatch):
     cache.clear()
     metadata = {"source": "tiny-test-fixture", "version": "1"}
     catalog = {"metadata": metadata, "stations": []}
-    monkeypatch.setattr("fuel.service.station_catalog", lambda: catalog)
+    monkeypatch.setattr("fuel.route_planner.station_catalog", lambda: catalog)
     monkeypatch.setattr("fuel.views.station_catalog", lambda: catalog)
-    monkeypatch.setattr("fuel.catalog.us_boundary", lambda: box(-125, 24, -65, 50))
+    monkeypatch.setattr("fuel.location_catalog.us_boundary", lambda: box(-125, 24, -65, 50))
     # This fixture is deliberately tiny; country-boundary data quality is tested
     # separately from HTTP behavior. Paris is unambiguously outside this box.
     cities = {
@@ -63,20 +63,20 @@ def api(monkeypatch):
             },
         },
     }
-    monkeypatch.setattr("fuel.catalog.city_index", lambda: cities)
+    monkeypatch.setattr("fuel.location_catalog.city_index", lambda: cities)
     routed = []
 
     class ShortTripRouter:
         def __init__(self):
             self.calls = 0
 
-        def route(self, points):
+        def route(self, points, *, radiuses=None):
             self.calls += 1
             routed.append(tuple(points))
             meters = Decimal(100) * METERS_PER_MILE
             return RoadRoute(tuple(points), meters, 3600.0, (meters,), tuple(points))
 
-    monkeypatch.setattr("fuel.service.OSRMClient", ShortTripRouter)
+    monkeypatch.setattr("fuel.route_planner.OSRMClient", ShortTripRouter)
     yield Client(), routed, catalog
     cache.clear()
 
@@ -281,7 +281,7 @@ def test_provider_failure_remains_typed_and_does_not_poison_the_cache(api, monke
     failing_router.route.side_effect = PlanningError(
         "routing_unavailable", "Provider failed", status=502
     )
-    monkeypatch.setattr("fuel.service.OSRMClient", lambda: failing_router)
+    monkeypatch.setattr("fuel.route_planner.OSRMClient", lambda: failing_router)
     for _ in range(2):
         assert_error(post(client, request_body()), 502, "routing_unavailable")
     assert failing_router.route.call_count == 2
@@ -292,7 +292,7 @@ def test_busy_planner_returns_retry_after_without_starting_a_route(api, monkeypa
     client, routed, _ = api
     lock = Mock()
     lock.acquire.return_value = False
-    monkeypatch.setattr("fuel.service._planning_lock", lock)
+    monkeypatch.setattr("fuel.route_planner._planning_lock", lock)
     response = post(client, request_body())
     assert_error(response, 503, "planner_busy")
     assert response.headers["Retry-After"] == "3"

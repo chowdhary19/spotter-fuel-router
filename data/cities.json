@@ -3,6 +3,17 @@
     "source_file": "us-places-gazetteer.txt",
     "source_sha256": "e10cb8004732684fa2a75b9d6030c6c9171674d6b112cff29dbc1bc31a9b82fa",
     "source_url": "https://www2.census.gov/geo/docs/maps-data/data/gazetteer/2026_Gazetteer/2026_Gaz_place_national.zip",
+    "sourced_aliases": {
+      "filename": "city_aliases.json",
+      "sha256": "c1a6768ef3545d98c015367af93f73afbe1ca15340443fec4b1f8de8e5b56dc4",
+      "aliases_applied": 8,
+      "attribution": {
+        "purpose": "Explicit common-name aliases for Census legal place names; no fuzzy matching or coordinate changes",
+        "reviewed_on": "2026-11-25",
+        "geonames_license_url": "https://creativecommons.org/licenses/by/4.0/",
+        "geonames_attribution": "Contains selected GeoNames names, https://www.geonames.org/, licensed CC BY 4.0. Aliases are linked to unchanged Census place records."
+      }
+    },
     "coordinate_use": "endpoint_resolution_only",
     "coordinate_meaning": "Census internal representative point of a place, not a street address or fuel station",
     "scope": "50 US states and DC; Puerto Rico and other territories excluded",
@@ -69395,7 +69406,12 @@
       "latitude": 32.808995,
       "longitude": -83.694051,
       "aliases": [
-        "Macon-Bibb County"
+        "Macon-Bibb County",
+        "Macon"
+      ],
+      "alias_sources": [
+        "https://www.geonames.org/4207400/",
+        "https://www.maconbibb.us/wp-content/uploads/2023/07/Macon-Bibb-County-ACFR22-Final.pdf"
       ]
     },
     {
@@ -75167,7 +75183,11 @@
       "longitude": -116.231596,
       "aliases": [
         "Boise City",
-        "Boise City city"
+        "Boise City city",
+        "Boise"
+      ],
+      "alias_sources": [
+        "https://www.geonames.org/5586437/"
       ]
     },
     {
@@ -86423,7 +86443,12 @@
       "longitude": -89.097245,
       "aliases": [
         "LaSalle",
-        "LaSalle city"
+        "LaSalle city",
+        "La Salle"
+      ],
+      "alias_sources": [
+        "https://www.lasalle-il.gov/",
+        "https://www.lasalle-il.gov/community/businesses"
       ]
     },
     {
@@ -89279,7 +89304,12 @@
       "longitude": -89.019605,
       "aliases": [
         "North Utica",
-        "North Utica village"
+        "North Utica village",
+        "Utica"
+      ],
+      "alias_sources": [
+        "https://utica-il.gov/",
+        "https://utica-il.gov/contact"
       ]
     },
     {
@@ -320639,7 +320669,12 @@
       "aliases": [
         "Nashville-Davidson",
         "Nashville-Davidson metropolitan government (balance)",
-        "Nashville-Davidson metropolitan government"
+        "Nashville-Davidson metropolitan government",
+        "Nashville"
+      ],
+      "alias_sources": [
+        "https://www.geonames.org/4644585/",
+        "https://www.nashville.gov/departments/council"
       ]
     },
     {
@@ -343307,7 +343342,14 @@
       "longitude": -103.522209,
       "aliases": [
         "Town of Pecos",
-        "Town of Pecos city"
+        "Town of Pecos city",
+        "Pecos",
+        "Pecos City",
+        "Town of Pecos City"
+      ],
+      "alias_sources": [
+        "https://www.pecostx.gov/165/City-Council",
+        "https://directory.tml.org/profile/city/754"
       ]
     },
     {

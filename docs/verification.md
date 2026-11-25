@@ -1,40 +1,92 @@
-# Verification record
+# Verification scope and reproduction
 
-Measured locally on November 25, 2026, using the supplied price snapshot, the 1,179-station prepared catalog and the public OSRM driving service. These are bounded functional checks, not a load test or latency guarantee.
+The live results below were measured on November 25, 2026 against the local matrix-planner working tree and its 1,394-station catalog. They are bounded functional checks, not a throughput test, nationwide-coverage proof, or latency guarantee. The final local automated run is recorded below; neither that run nor the route samples establishes production readiness.
 
-## Real road routes
+## Final local automated run
 
-| Route | Road miles | Fuel stops | New fuel spend | Arrival reserve | Routing calls | API processing time |
-|---|---:|---:|---:|---:|---:|---:|
-| Dallas → Houston | 238.253 | 0 | $0.00 | 26.174696 gal remaining | 1 | 954.39 ms |
-| Chicago → Los Angeles | 2,036.015 | 7 | $520.71 | 0 gal | 2 | 2,958.82 ms |
-| New York → Miami | 1,287.609 | 4 | $279.44 | 5 gal | 2 | 2,400.55 ms |
-| San Francisco → Los Angeles | 380.435 | 0 | $0.00 | 11.956530 gal remaining | 1 | 1,936.78 ms |
+On the reviewed local working tree, **2,030 Python tests and 710 subtests passed in 34.62 seconds**. All **seven Node contract tests**, Ruff lint/format checks, and Django system checks passed. The Python run reported 19 existing `shapely.ops.transform` deprecation warnings and no test failures.
 
-All start with 50 gallons. The Dallas case needs no new purchases; it consumes 23.825304 gallons of existing fuel. The Chicago itinerary adds 7.090 miles to the original base road route. Its longest routed leg is 479.570 miles. The New York request explicitly requires five gallons at the destination.
+Rebuilding from the explicitly saved source cache reproduced `stations.json` and `station_coordinates.csv` byte-for-byte at the current 1,394-station count. This confirms reproduction from those inputs; a future live feed can differ.
 
-A separate check reconstructed tank contents from the returned route positions and purchases, checked nonnegative arrival fuel, capacity ≤50 gallons, destination reserve, line-item money rounding and the total charge. It also reconciled the sum of road legs with the reported distance. These checks allowed only the documented output rounding tolerance; optimization itself uses unrounded distances.
+## Offline checks
 
-Ten consecutive cached Chicago requests made **zero external routing calls**. Client-side median latency was 31.06 ms, minimum 30.13 ms and maximum 41.83 ms on this machine. This sample does not establish concurrent throughput or an SLA.
+```sh
+uv sync --locked --group data
+uv run ruff check .
+uv run ruff format --check .
+uv run python manage.py check
+uv run --group data pytest -q
+node --test tests/postman_contract.test.cjs
+```
 
-## Automated checks
+The suite uses synthetic station/road fixtures and does not require network access or the employer's CSV. A passing clean-checkout suite therefore verifies application behavior, not availability of the live station feeds or routing service.
 
-Final local checks: **127 Python tests and 684 subtests passed**, including the 600 oracle instances. Seven offline Postman-contract checks passed, including deliberately incorrect responses that must fail. Ruff lint/format and Django system checks passed. A clean checkout without the private station files also passed the offline suite; the bundled synthetic fixtures supply test station data.
+| Area | Evidence exercised |
+|---|---|
+| Directed graph optimizer | Independent exhaustive buy-one-unit/traverse-edge oracle; asymmetric and unreachable roads; cheap-pump detours; non-purchasing transit; revisits; initial inventory; reserve; continuous decimal boundaries |
+| Fixed-route optimizer | Independent exhaustive oracle and fuel conservation; exact 500-mile range and just-over-range cases; partial purchases and equal prices |
+| Candidate selection | Full bent road geometry, geographic spread, endpoint alternatives, deterministic cap and honest subset metadata |
+| Routing and itinerary | Directed distance table, no estimated fallback edges, consistent source/destination snaps, final route/matrix agreement, explicit provider errors and call budget |
+| Data preparation | Price precision, quote provenance, excluded non-US rows, state polygons, sourced city aliases, explicit store/network identity, duplicate/closed/ambiguous records |
+| API and map | Input validation, bounded errors, fuel/charge output contracts, cache reuse and map recovery |
 
-The optimizer is compared against an independent exhaustive dynamic-programming oracle on 600 seeded integer-distance cases. That oracle uses rational arithmetic and enumerates all feasible purchases, rather than copying the greedy rule. Cases just above and below the 500-mile boundary are checked separately at Decimal precision.
+The graph oracle enumerates fuel-buying and edge-traversal actions on the original graph. It does not share the implementation's shortest-distance closure or critical-state exchange rule. The fixed-route oracle independently enumerates feasible purchases. These checks provide meaningful counterexamples to implementation errors rather than merely asserting copied formulas.
 
-HTTP and service tests cover provider validation, road-distance recalculation, bounded repair, insufficient station coverage, initial fuel and reserve, money/fuel conservation, cache invalidation, map-cache recovery, malformed requests and bounded JSON errors. Offline tests never need the external provider.
+## Measured live checks
 
-Data preparation preserves quote precision and row identity. Matching regressions reject ambiguous store identities, explicit closures, implausible city distances and duplicate physical identities. Rebuilding with the saved directory snapshots reproduced the three main derived data files byte-for-byte.
+Recorded at 2026-11-25 12:44:57 UTC on local macOS, Gunicorn with one worker and four threads, using the public OSRM service. These were sequential cold HTTP requests. All successful cases start with 50 gallons; New York–Miami also requires a five-gallon destination reserve.
 
-## Found and fixed during review
+| Route | Road miles | Purchase stops | New fuel cost | Provider calls | Client HTTP time |
+|---|---:|---:|---:|---:|---:|
+| Chicago → Los Angeles | 2,032.751 | 5 | $493.70 | 3 | 6,756.00 ms |
+| New York → Miami, 5-gal reserve | 1,285.566 | 4 | $266.54 | 3 | 8,036.32 ms |
+| Nashville → Dallas | 662.940 | 2 | $50.92 | 3 | 3,705.03 ms |
+| Boise → Seattle | 490.377 | 0 | $0.00 | 1 | 1,120.29 ms |
+| Dallas → Houston | 238.253 | 0 | $0.00 | 1 | 1,027.70 ms |
+| San Francisco → Los Angeles | 380.435 | 0 | $0.00 | 1 | 1,230.95 ms |
+| Boise → Nashville | 1,934.250 | 6 | $448.18 | 3 | 4,658.35 ms |
 
-- Separate map-cache eviction could leave a cached API result with an expired map. Cache hits now republish the map entry.
-- Oversized bodies and extreme JSON numbers could escape the normal JSON error contract. They now return bounded JSON errors.
-- Census place reference points can be offshore. Nine supported corrections retain explicit GeoNames provenance; unresolved cases ask for coordinates instead of routing to the ocean.
-- A failed browser request could leave the previous successful route visible. The old summary and route layer are cleared on failure.
-- Django's default same-origin referrer policy prevented compliant cross-site map-tile requests. The map now sends only its origin cross-site, as required by the OSM tile policy, without exposing route paths or query data.
+A separate San Francisco–Los Angeles request starting with **30 gallons** returned HTTP 422 / `insufficient_verified_stations` in 1,159.07 ms. There were zero accepted priced stations in the 75-mile candidate corridor. This is an observed coverage limitation, not a successful trip; the API did not invent a stop to bridge it.
 
-## Limits retained
+Ten subsequent cached Chicago requests had client HTTP times of **52.50–76.07 ms**, median **60.17 ms**. Cache hits avoid new provider calls. This serial sample does not establish concurrent capacity.
 
-Station coverage is partial and prices are undated. Global cheapest-road-route optimality is not claimed. Road snaps do not verify driveways or opening hours. The OSRM car profile is not truck-legal routing. The free service can fail or be rate-limited, and the one-process cache is intentionally a local-demo implementation.
+Price CSV SHA-256: `c704371f141ded9c54df6c32d488a0ba2ceb589f88c936c967daa5330e0cd241`.
+Accepted-coordinate CSV SHA-256: `5bdf98114724088e82479cf3682c33163860af36c1875c54a89c86876b9ace28`.
+
+## Reproduce and reconcile a live run
+
+Start the documented single-worker server after preparing the local catalog. Record the Git revision, source/coordinate hashes, station count, provider URL, UTC time, requests and responses. At minimum:
+
+1. A long trip with refueling, showing three provider calls and a matrix-consistent final route.
+2. A short trip covered by the initial tank, showing one call and zero new purchase cost.
+3. A destination reserve, with independently reconstructed arrival fuel.
+4. The same successful request repeated, showing a cache hit and zero new provider calls.
+5. A meaningful coverage/provider failure, verifying the structured error without presenting it as success.
+
+For each successful response independently reconcile:
+
+- Initial fuel + purchased gallons − road miles / 10 = final fuel.
+- Fuel stays between zero and 50 gallons, and the destination reserve is met.
+- Road legs sum to the reported route distance.
+- Each purchase charge matches gallons × supplied price at documented rounding precision; total equals the displayed charge sum.
+- Matrix/final-route leg differences stay within the one-metre tolerance, and station snaps stay within 25 metres.
+
+Open the returned map and inspect the real road line, stop markers, units, labels, and error-state clearing. A JSON success response alone does not prove the map renders correctly.
+
+## Data evidence and geographic limits
+
+The current local catalog contains 1,394 of 6,626 US station IDs across 45 states. Its source hashes and all match decisions are recorded in local audit files. The original 1,179 accepted station records were retained unchanged when 215 further official matches were added; this is data-preservation evidence, not a runtime benchmark.
+
+Common-name regressions verify Boise, Nashville, Macon, Pecos, La Salle and Utica IL against their exact Census identities. State checks recover exact official sites whose towns are absent from the place gazetteer, while wrong-state points and excessive known-city distances remain rejected.
+
+The CSV lacks AK/HI/DC prices and most California geography. The station subset and 62-candidate graph remain incomplete. Passing the checked routes cannot establish nationwide coverage or an all-roads/all-stations optimum.
+
+## Performance interpretation
+
+Uncached refueling plans need a base route, one matrix, and one final route. The default matrix is at most 64×64 and the graph search is bounded. Provider calls are spaced approximately one second apart, so their pacing and network work materially affect latency. Cache hits avoid those calls.
+
+Report measured per-case server/client times with sample sizes and cold/warm status. Do not reuse earlier two-call timings, infer concurrent capacity from serial samples, or describe a few passing routes as an SLA. Provider response-size/time checks bound work but are not a hard DNS/network wall-clock guarantee. The free routing service can fail, throttle, or impose a lower matrix limit.
+
+## Submission evidence
+
+The assessment requires both a GitHub repository URL and an actual Loom video **no longer than five minutes**. The [walkthrough guide](walkthrough.md) is preparation for that recording, not a substitute for it. Confirm that both links are accessible to the reviewer and that the recording shows the revision whose checks are reported.

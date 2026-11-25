@@ -1,3 +1,5 @@
+"""Road itinerary planning: bounded discovery, graph search, final verification."""
+
 import copy
 import hashlib
 import json
@@ -9,11 +11,13 @@ from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from django.conf import settings
 from django.core.cache import cache
 
-from .catalog import resolve_location, station_catalog
 from .errors import PlanningError
-from .geo import candidates_on_route, meters_between
-from .optimizer import FuelStation, InfeasibleFuelPlan, optimize_fuel
-from .routing import METERS_PER_MILE, OSRMClient
+from .fixed_route_fuel_optimizer import InfeasibleFuelPlan, optimize_road_fuel
+from .fuel_route_optimizer import GraphStation, InfeasibleGraphPlan, optimize_road_station_graph
+from .geo import meters_between
+from .location_catalog import resolve_location, station_catalog
+from .routing_client import METERS_PER_MILE, OSRMClient
+from .station_candidates import select_station_candidates
 
 _planning_lock = threading.Lock()
 CAPACITY = Decimal("50")
@@ -21,10 +25,12 @@ MPG = Decimal("10")
 
 
 def number(value, places="0.000001"):
+    """Round only serialized display values, never optimization inputs."""
     return str(Decimal(value).quantize(Decimal(places), rounding=ROUND_HALF_UP))
 
 
 def gallons_parameter(data, name, default):
+    """Validate bounded quantities before any provider request."""
     value = data.get(name, default)
     try:
         if isinstance(value, bool) or not isinstance(value, (int, float, str, Decimal)):
@@ -41,10 +47,6 @@ def gallons_parameter(data, name, default):
     return result
 
 
-def station_input(station, miles):
-    return FuelStation(str(station["opis_id"]), miles, Decimal(station["price_usd_per_gallon"]))
-
-
 def points_for(start, finish, selected):
     return [
         (start["longitude"], start["latitude"]),
@@ -53,11 +55,24 @@ def points_for(start, finish, selected):
     ]
 
 
-def validate_snaps(route, points):
-    # An OSRM waypoint snapped kilometres away could silently ignore a fuel stop.
-    for index, (requested, snapped) in enumerate(zip(points, route.snapped_waypoints, strict=True)):
+STATION_SNAP_LIMIT_METERS = 25
+CITY_SNAP_LIMIT_METERS = 5000
+MATRIX_LEG_TOLERANCE_METERS = Decimal("1")
+
+
+def endpoint_radius(location):
+    """City representatives allow road resolution; exact coordinates stay exact."""
+    if location.get("resolution", "").startswith("user-supplied coordinates"):
+        return STATION_SNAP_LIMIT_METERS
+    return CITY_SNAP_LIMIT_METERS
+
+
+def validate_snaps(route, points, radiuses):
+    """Reject displaced waypoints rather than silently buying fuel elsewhere."""
+    for index, (requested, snapped, limit) in enumerate(
+        zip(points, route.snapped_waypoints, radiuses, strict=True)
+    ):
         snap = meters_between(requested, snapped)
-        limit = 500 if index not in {0, len(points) - 1} else 5000
         if snap > limit:
             raise PlanningError(
                 "waypoint_too_far_from_road",
@@ -70,124 +85,160 @@ def validate_snaps(route, points):
             )
 
 
-def final_plan(route, selected, initial, reserve):
+def final_plan(route, path_nodes, stations, initial, reserve):
+    """Recompute purchases independently on final road legs, including revisits."""
     distance = Decimal(0)
     stops = []
-    for index, station in enumerate(selected):
-        distance += route.leg_distances_meters[index] / METERS_PER_MILE
-        stops.append(station_input(station, distance))
-    return optimize_fuel(stops, route.miles, initial_fuel_gallons=initial, reserve_gallons=reserve)
-
-
-def repair_waypoints(route, selected, candidates, initial, reserve):
-    """Insert at most one midpoint candidate in each newly over-range road leg.
-
-    This is a bounded repair heuristic, not a global road-network search.
-    The repaired itinerary is accepted only after another real route validates it.
-    """
-    additions = []
-    selected_ids = {s["opis_id"] for s in selected}
-    for i, meters in enumerate(route.leg_distances_meters):
-        maximum = initial * MPG if i == 0 else CAPACITY * MPG
-        if i == len(route.leg_distances_meters) - 1:
-            maximum -= reserve * MPG
-        if meters / METERS_PER_MILE <= maximum:
-            continue
-        left = selected[i - 1]["progress_miles"] if i else Decimal(0)
-        right = selected[i]["progress_miles"] if i < len(selected) else Decimal("Infinity")
-        options = [
-            s
-            for s in candidates
-            if s["opis_id"] not in selected_ids and left < s["progress_miles"] < right
-        ]
-        if not options:
-            raise PlanningError(
-                "insufficient_verified_stations",
-                "No verified station can repair an over-range road leg.",
-                details={"leg": i, "distance_miles": number(meters / METERS_PER_MILE, "0.001")},
+    for path_index, meters in enumerate(route.leg_distances_meters, start=1):
+        distance += meters
+        node = path_nodes[path_index]
+        if 1 <= node <= len(stations):
+            station = stations[node - 1]
+            stops.append(
+                (str(station["opis_id"]), distance, Decimal(station["price_usd_per_gallon"]))
             )
-        target = (left + right) / 2 if right.is_finite() else left + maximum / 2
-        choice = min(
-            options,
-            key=lambda s: (
-                abs(s["progress_miles"] - target),
-                Decimal(s["price_usd_per_gallon"]),
-                s["opis_id"],
-            ),
-        )
-        additions.append(choice)
-        selected_ids.add(choice["opis_id"])
-    if not additions:
-        raise PlanningError(
-            "insufficient_verified_stations",
-            "The selected road itinerary cannot satisfy the fuel constraints.",
-        )
-    return sorted([*selected, *additions], key=lambda s: (s["progress_miles"], s["opis_id"]))
-
-
-def build_plan(start, finish, initial, reserve, catalog, router):
-    base_points = points_for(start, finish, [])
-    base = router.route(base_points)
-    validate_snaps(base, base_points)
-    candidates = []
-    selected = []
-    route = base
-    corridor = 0
-    if initial * MPG >= base.miles + reserve * MPG:
-        plan = final_plan(base, [], initial, reserve)
-    else:
-        for corridor in (2, 5, 10):
-            candidates = candidates_on_route(base, catalog["stations"], corridor_miles=corridor)
-            try:
-                projected = optimize_fuel(
-                    [station_input(s, s["progress_miles"]) for s in candidates],
-                    base.miles,
-                    initial_fuel_gallons=initial,
-                    reserve_gallons=reserve,
-                )
-                break
-            except InfeasibleFuelPlan:
-                continue
-        else:
-            raise PlanningError(
-                "insufficient_verified_stations",
-                "The verified price-and-coordinate catalog cannot cover this route "
-                "within the fuel range.",
-                details={
-                    "candidate_stations": len(candidates),
-                    "corridor_miles": corridor,
-                    "action": "Enrich more stations; no city-centre fuel stops are fabricated.",
-                },
-            )
-        selected_ids = {p.station.identifier for p in projected.purchases}
-        selected = [s for s in candidates if str(s["opis_id"]) in selected_ids]
-        if len(selected) > 98:
-            raise PlanningError(
-                "too_many_stops", "This itinerary exceeds the routing waypoint limit."
-            )
-        points = points_for(start, finish, selected)
-        route = router.route(points)
-        validate_snaps(route, points)
-        try:
-            plan = final_plan(route, selected, initial, reserve)
-        except InfeasibleFuelPlan:
-            selected = repair_waypoints(route, selected, candidates, initial, reserve)
-            points = points_for(start, finish, selected)
-            route = router.route(points)
-            validate_snaps(route, points)
-            try:
-                plan = final_plan(route, selected, initial, reserve)
-            except InfeasibleFuelPlan as exc:
-                raise PlanningError(
-                    "route_not_validated",
-                    "A feasible itinerary could not be validated within three routing calls.",
-                ) from exc
-    return serialize_plan(
-        start, finish, base, route, selected, plan, corridor, catalog, router.calls
+    return optimize_road_fuel(
+        stops, route.distance_meters, initial_fuel_gallons=initial, reserve_gallons=reserve
     )
 
 
-def serialize_plan(start, finish, base, route, selected, plan, corridor, catalog, calls):
+def coverage_error(metadata):
+    return PlanningError(
+        "insufficient_verified_stations",
+        "The verified, road-accessible station graph cannot cover this trip within the fuel range.",
+        details={
+            **metadata,
+            "action": "Add verified station coordinates/prices or widen the "
+            "candidate search; no fuel stop or road distance is invented.",
+        },
+    )
+
+
+def build_plan(start, finish, initial, reserve, catalog, router):
+    """Use route, distance table, final route; one call suffices without purchases."""
+    base_points = points_for(start, finish, [])
+    endpoint_radii = [endpoint_radius(start), endpoint_radius(finish)]
+    base = router.route(base_points, radiuses=endpoint_radii)
+    validate_snaps(base, base_points, endpoint_radii)
+    selection = {
+        "corridor_miles": 0,
+        "matrix_station_count": 0,
+        "accessible_station_count": 0,
+        "subset_was_capped": False,
+    }
+    if (initial - reserve) * MPG * METERS_PER_MILE >= base.distance_meters:
+        plan = final_plan(base, (0, 1), [], initial, reserve)
+        return serialize_plan(start, finish, base, base, [], plan, selection, catalog, router.calls)
+
+    candidates, selection = select_station_candidates(base, catalog["stations"])
+    if not candidates:
+        raise coverage_error(selection)
+    points = points_for(start, finish, candidates)
+    # Broad table snaps allow excluding bad station points individually.
+    # Only <=25m station snaps enter the optimizer and final itinerary.
+    matrix = router.table(
+        points, radiuses=[endpoint_radii[0], *([5000] * len(candidates)), endpoint_radii[1]]
+    )
+    retained = [0]
+    excluded = []
+    for index, station in enumerate(candidates, start=1):
+        offset = meters_between(points[index], matrix.snapped_waypoints[index])
+        if offset <= STATION_SNAP_LIMIT_METERS:
+            retained.append(index)
+        else:
+            excluded.append(
+                {"station_id": str(station["opis_id"]), "snap_distance_meters": round(offset, 1)}
+            )
+    retained.append(len(points) - 1)
+    for index, limit in ((0, endpoint_radii[0]), (len(points) - 1, endpoint_radii[1])):
+        if meters_between(points[index], matrix.snapped_waypoints[index]) > limit:
+            raise PlanningError(
+                "waypoint_too_far_from_road",
+                "An endpoint could not be resolved closely enough to a road.",
+            )
+    candidates = [candidates[i - 1] for i in retained[1:-1]]
+    points = [points[i] for i in retained]
+    snapped_points = [matrix.snapped_waypoints[i] for i in retained]
+    distances = tuple(tuple(matrix.distances_meters[i][j] for j in retained) for i in retained)
+    selection.update(
+        accessible_station_count=len(candidates),
+        excluded_station_snaps=excluded,
+        maximum_station_snap_meters=STATION_SNAP_LIMIT_METERS,
+    )
+    try:
+        graph = optimize_road_station_graph(
+            [
+                GraphStation(str(s["opis_id"]), Decimal(s["price_usd_per_gallon"]))
+                for s in candidates
+            ],
+            distances,
+            initial_fuel_gallons=initial,
+            reserve_gallons=reserve,
+        )
+    except InfeasibleGraphPlan as exc:
+        raise coverage_error(selection) from exc
+    if len(graph.node_indices) > 100:
+        raise PlanningError("too_many_stops", "The optimized itinerary exceeds 100 road waypoints.")
+    route_points = [points[i] for i in graph.node_indices]
+    radiuses = [
+        endpoint_radii[0]
+        if i == 0
+        else endpoint_radii[1]
+        if i == len(points) - 1
+        else STATION_SNAP_LIMIT_METERS
+        for i in graph.node_indices
+    ]
+    route = router.route(route_points, radiuses=radiuses)
+    validate_snaps(route, route_points, radiuses)
+    # One metre accommodates provider rounding, not a detour allowance.
+    for position, (left, right, actual) in enumerate(
+        zip(
+            graph.node_indices[:-1], graph.node_indices[1:], route.leg_distances_meters, strict=True
+        )
+    ):
+        expected = distances[left][right]
+        if (
+            expected is None
+            or abs(actual - expected) > MATRIX_LEG_TOLERANCE_METERS
+            or meters_between(route.snapped_waypoints[position], snapped_points[left]) > 1
+            or meters_between(route.snapped_waypoints[position + 1], snapped_points[right]) > 1
+        ):
+            raise PlanningError(
+                "route_changed_after_optimization",
+                "The final road itinerary differs from the optimized road matrix; retry the trip.",
+                details={
+                    "leg": position,
+                    "matrix_meters": str(expected),
+                    "route_meters": str(actual),
+                },
+                status=503,
+            )
+    try:
+        plan = final_plan(route, graph.node_indices, candidates, initial, reserve)
+    except InfeasibleFuelPlan as exc:
+        raise PlanningError(
+            "route_not_validated", "Final road distances cannot satisfy the fuel constraints."
+        ) from exc
+    selected = [candidates[i - 1] for i in graph.node_indices if 1 <= i <= len(candidates)]
+    selection["graph_minimum_purchase_cost_usd"] = number(graph.total_cost_usd, "0.000001")
+    selection["matrix_route_max_leg_difference_meters"] = str(
+        max(
+            abs(actual - distances[left][right])
+            for left, right, actual in zip(
+                graph.node_indices[:-1],
+                graph.node_indices[1:],
+                route.leg_distances_meters,
+                strict=True,
+            )
+        )
+    )
+    return serialize_plan(
+        start, finish, base, route, selected, plan, selection, catalog, router.calls
+    )
+
+
+def serialize_plan(start, finish, base, route, selected, plan, selection, catalog, calls):
+    """Build map features and a reconciled, auditable fuel-purchase response."""
     by_id = {str(s["opis_id"]): s for s in selected}
     purchases = []
     for purchase in plan.purchases:
@@ -270,11 +321,14 @@ def serialize_plan(start, finish, base, route, selected, plan, corridor, catalog
             "road_distances_verified": True,
             "fuel_balance_verified": True,
             "optimization_scope": (
-                "Minimum fuel purchase cost on the selected, road-validated station itinerary. "
-                "Candidate projection and itinerary selection are heuristics, "
-                "not a global cheapest-route guarantee."
+                "Minimum purchase cost over selected stations and directed provider road segments; "
+                "final purchases independently verified on the returned route. Candidate selection "
+                "is bounded and station geography is incomplete, so this is not an all-roads, "
+                "all-stations nationwide optimum."
             ),
-            "candidate_corridor_miles": corridor,
+            "candidate_corridor_miles": selection["corridor_miles"],
+            "station_selection": selection,
+            "matrix_and_final_route_consistent": calls == 3,
             "routing_provider": "OSRM driving (car profile, not commercial-truck restrictions)",
             "initial_route_api_calls": calls,
         },
@@ -292,6 +346,7 @@ def serialize_plan(start, finish, base, route, selected, plan, corridor, catalog
 
 
 def plan_request(data):
+    """Resolve input, reuse compatible cached plans, and bound cold-plan concurrency."""
     began = time.perf_counter()
     if not isinstance(data, dict) or not {"start", "finish"} <= data.keys():
         raise PlanningError(
@@ -311,7 +366,15 @@ def plan_request(data):
     reserve = gallons_parameter(data, "reserve_gallons", 0)
     catalog = station_catalog()
     identity = json.dumps(
-        [start, finish, str(initial), str(reserve), catalog["metadata"], settings.OSRM_BASE_URL],
+        [
+            "road-matrix-v2",
+            start,
+            finish,
+            str(initial),
+            str(reserve),
+            catalog["metadata"],
+            settings.OSRM_BASE_URL,
+        ],
         sort_keys=True,
     )
     key = "plan:" + hashlib.sha256(identity.encode()).hexdigest()

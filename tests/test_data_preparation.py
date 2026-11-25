@@ -7,6 +7,7 @@ from copy import deepcopy
 from pathlib import Path
 
 import pytest
+from shapely.geometry import box
 
 
 @pytest.fixture
@@ -112,6 +113,63 @@ def test_missing_city_reference_does_not_guess(matcher, example):
     matches, audit = matcher.match_stations([station], [official], {"places": []})
     assert matches == []
     assert audit["unmatched"][0]["reason"] == "no_census_place_for_geographic_crosscheck"
+
+
+def test_exact_official_identity_without_census_city_uses_actual_state_polygon(matcher, example):
+    station, official, _ = example
+    states = {"MO": box(-91, 38, -89, 39)}
+    matches, _ = matcher.match_stations(
+        [station], [official], {"places": []}, state_boundaries=states
+    )
+    assert len(matches) == 1
+    assert matches[0]["geographic_check"] == "state_polygon_without_census_place"
+    assert matches[0]["city_reference_geoid"] is None
+    assert matches[0]["latitude"] == official["latitude"]
+    assert matches[0]["longitude"] == official["longitude"]
+
+
+def test_nearby_census_point_cannot_override_wrong_state_polygon(matcher, example):
+    station, official, cities = example
+    matches, audit = matcher.match_stations(
+        [station], [official], cities, state_boundaries={"MO": box(-89, 38, -88, 39)}
+    )
+    assert matches == []
+    assert audit["unmatched"][0]["reason"] == "official_point_outside_source_state"
+
+
+def test_state_polygon_does_not_remove_existing_city_distance_guard(matcher, example):
+    station, official, cities = example
+    official["latitude"] = 40
+    matches, audit = matcher.match_stations(
+        [station], [official], cities, state_boundaries={"MO": box(-91, 38, -89, 41)}
+    )
+    assert matches == []
+    assert audit["unmatched"][0]["reason"] == "official_point_outside_city_plausibility_threshold"
+
+
+def test_explicit_dba_network_identity_uses_official_network_store_number(matcher, example):
+    station, official, cities = example
+    station["aliases"] = ["SHELL DBA ONE9 #17", "PILOT #17"]
+    official["chain"] = "one9"
+    matches, _ = matcher.match_stations([station], [official], cities)
+    assert len(matches) == 1
+    assert matches[0]["identity_namespace"] == "pilot_network"
+    assert matches[0]["official_store_number"] == "17"
+    official["city"] = "Other City"
+    matches, _ = matcher.match_stations([station], [official], cities)
+    assert matches == []
+
+
+def test_sourced_city_alias_identity_matches_without_fuzzy_name_guesses(matcher, example):
+    station, official, cities = example
+    station["city"] = "Reviewed Common Name"
+    official["city"] = "Reviewed Legal Name"
+    cities["places"][0]["aliases"] = [station["city"], official["city"]]
+    matches, _ = matcher.match_stations([station], [official], cities)
+    assert len(matches) == 1
+    official["city"] = "Reviewed Lega Name"
+    matches, _ = matcher.match_stations([station], [official], cities)
+    assert matches == []
 
 
 def test_two_opis_ids_for_one_site_are_both_quarantined(matcher, example):

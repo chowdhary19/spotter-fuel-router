@@ -39,6 +39,7 @@ GAZETTEER_SOURCE_URL = (
     "https://www2.census.gov/geo/docs/maps-data/data/gazetteer/"
     "2026_Gazetteer/2026_Gaz_place_national.zip"
 )
+DEFAULT_CITY_ALIASES = Path(__file__).resolve().parents[1] / "data" / "city_aliases.json"
 LEGAL_SUFFIXES = (
     " consolidated government",
     " metropolitan government",
@@ -330,7 +331,11 @@ def strip_legal_suffix(name: str) -> str:
     return result
 
 
-def build_cities(gazetteer: Path, source_url: str = GAZETTEER_SOURCE_URL) -> dict:
+def build_cities(
+    gazetteer: Path,
+    source_url: str = GAZETTEER_SOURCE_URL,
+    aliases_path: Path | None = DEFAULT_CITY_ALIASES,
+) -> dict:
     required = {"USPS", "GEOID", "NAME", "INTPTLAT", "INTPTLONG"}
     places = []
     excluded_rows = 0
@@ -372,11 +377,34 @@ def build_cities(gazetteer: Path, source_url: str = GAZETTEER_SOURCE_URL) -> dic
                     "aliases": aliases,
                 }
             )
+    alias_metadata = None
+    if aliases_path is not None:
+        alias_data = json.loads(aliases_path.read_text())
+        by_geoid = {place["geoid"]: place for place in places}
+        applied_aliases = 0
+        for record in alias_data["places"]:
+            place = by_geoid.get(record["geoid"])
+            if place is None:
+                continue
+            if place["state"] != record["state"] or place["name"] != record["census_name"]:
+                raise ValueError("Sourced city alias no longer matches its Census identity")
+            if not record["sources"] or not record["aliases"]:
+                raise ValueError("City aliases require explicit source evidence")
+            place["aliases"] = list(dict.fromkeys([*place["aliases"], *record["aliases"]]))
+            place["alias_sources"] = record["sources"]
+            applied_aliases += len(record["aliases"])
+        alias_metadata = {
+            "filename": aliases_path.name,
+            "sha256": digest(aliases_path),
+            "aliases_applied": applied_aliases,
+            "attribution": alias_data["metadata"],
+        }
     return {
         "metadata": {
             "source_file": gazetteer.name,
             "source_sha256": digest(gazetteer),
             "source_url": source_url,
+            "sourced_aliases": alias_metadata,
             "coordinate_use": "endpoint_resolution_only",
             "coordinate_meaning": (
                 "Census internal representative point of a place, "

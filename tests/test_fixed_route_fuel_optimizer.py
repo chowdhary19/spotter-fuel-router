@@ -7,7 +7,7 @@ import unittest
 from decimal import Decimal, localcontext
 from fractions import Fraction
 
-from fuel.optimizer import (
+from fuel.fixed_route_fuel_optimizer import (
     FuelPlan,
     FuelStation,
     InfeasibleFuelPlan,
