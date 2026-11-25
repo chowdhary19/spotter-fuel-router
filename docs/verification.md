@@ -4,7 +4,7 @@ Reviewed November 25, 2026. The current implementation passes the automated and 
 
 ## Automated checks
 
-The final local run passed **2,255 Python tests and 712 subtests in 26.82 seconds**. All **10 JavaScript checks**, Ruff lint/format checks and Django system checks passed. The Python run includes 188 instances of an existing Shapely transform deprecation warning; no test failed.
+The final local run passed **2,255 Python tests and 712 subtests in 26.82 seconds**. All **12 JavaScript checks**, Ruff lint/format checks and Django system checks passed. The Python run includes 188 instances of an existing Shapely transform deprecation warning; no test failed.
 
 There are **2,533 independent oracle comparisons**: 1,800 directed-graph instances, 600 fixed-route instances and 133 HTTP integration scenarios. The graph oracle directly enumerates buying one unit of fuel and traversing original graph edges. It does not reuse the production shortest-distance closure or critical-fuel-state exchange rule. Its integer fixtures admit an integer optimum; separate regression cases exercise continuous precision boundaries.
 
@@ -91,6 +91,8 @@ Two immediate cached Chicago/LA repeats took **55.69 ms and 48.95 ms**, using ze
 ## Browser verification
 
 Chrome executed both a real successful request and an invalid-city request through the self-hosted Swagger UI at `/api/docs/`. A long-trip response displayed HTTP 200 with its returned route URL, six purchases and $477.56 total. The map displayed the road line and six numbered markers; the first marker showed its matching quantity and $95.23 purchase.
+
+The From/To dropdowns submit their selected cities directly; “Other location” preserves support for custom cities and exact coordinates. Browser-form checks cover both paths.
 
 A separate coordinate-input request used **49.123456 gallons initially and 5.123456 gallons reserve**. The saved map preserved those exact inputs, resubmitted successfully, and reused its cache. A following invalid-city request cleared the previous map and totals; a valid request restored them. The browser map contains an abbreviated geometry display for readability; the API returns full GeoJSON.
 

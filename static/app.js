@@ -137,6 +137,34 @@ function locationInput(location) {
     : location.label;
 }
 
+// Presets simplify the demo; custom cities and precise coordinates remain supported.
+const demoCities = [
+  "Atlanta, GA", "Boise, ID", "Boston, MA", "Chicago, IL", "Dallas, TX",
+  "Denver, CO", "Houston, TX", "Los Angeles, CA", "Miami, FL", "Minneapolis, MN",
+  "Nashville, TN", "New Orleans, LA", "New York, NY", "Phoenix, AZ", "Portland, OR",
+  "San Francisco, CA", "Seattle, WA", "Washington, DC",
+];
+
+function setupLocationChoice(id) {
+  const input = $(id);
+  const choice = $(`${id}-choice`);
+  choice.replaceChildren(...demoCities.map((city) => {
+    const option = text("option", city);
+    option.value = city;
+    return option;
+  }));
+  const custom = text("option", "Other location…");
+  custom.value = "";
+  choice.append(custom);
+  choice.value = demoCities.includes(input.value) ? input.value : "";
+  input.hidden = choice.value !== "";
+  choice.addEventListener("change", () => {
+    input.hidden = choice.value !== "";
+    input.value = choice.value;
+    if (!input.hidden) input.focus();
+  });
+}
+
 $("planner").addEventListener("submit", async (event) => {
   event.preventDefault();
   const body = {
@@ -184,6 +212,9 @@ if ($("saved-route")) {
   $("reserve").value = saved.reserve_gallons;
   show(saved);
 }
+
+setupLocationChoice("start");
+setupLocationChoice("finish");
 
 if (!map) {
   $("map").append(

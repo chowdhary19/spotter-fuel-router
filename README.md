@@ -40,7 +40,7 @@ The response includes route miles, GeoJSON, `map_url`, fuel-stop locations and p
 
 **Cost is fuel bought during this trip.** The initial tank's historical cost is unknown and excluded. A short trip can consume fuel while requiring $0 of new purchases. An empty tank requires a verified pump reachable with zero driving distance; the origin never receives an invented price.
 
-`GET /` provides a browser map demo. **`GET /api/docs/` opens a local Swagger UI API client:** click **Try it out**, choose or edit the JSON request, and click **Execute**. No Postman installation or account is required. `GET /api/schema/` serves its OpenAPI contract; all Swagger assets are vendored with version and license information. The optional [Postman collection](docs/spotter.postman_collection.json) includes automated response checks.
+`GET /` provides a browser map demo with From/To city dropdowns. Choose “Other location” to enter a custom city or precise coordinates. **`GET /api/docs/` opens a local Swagger UI API client:** click **Try it out**, choose or edit the JSON request, and click **Execute**. No Postman installation or account is required. `GET /api/schema/` serves its OpenAPI contract; all Swagger assets are vendored with version and license information. The optional [Postman collection](docs/spotter.postman_collection.json) includes automated response checks.
 
 `GET /routes/<id>/map/` displays a cached map. Maps expire after one hour or process restart; repeat the API request to regenerate one. Saved maps preserve coordinate inputs, starting fuel and destination reserve when replanning.
 

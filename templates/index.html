@@ -15,9 +15,11 @@
  <aside>
   <form id="planner">
    <h2>Plan a drive</h2>
-   <label for="start">From</label><input id="start" name="start" value="Chicago, IL" required maxlength="150">
-   <label for="finish">To</label><input id="finish" name="finish" value="Los Angeles, CA" required maxlength="150">
-   <p class="hint">Use City, ST or latitude, longitude. <a href="/api/docs/">Open API client</a></p>
+   <label for="start-choice">From</label><select id="start-choice"><option>Chicago, IL</option></select>
+   <input id="start" name="start" value="Chicago, IL" required maxlength="150" aria-label="Other starting location" placeholder="City, ST or latitude, longitude" hidden>
+   <label for="finish-choice">To</label><select id="finish-choice"><option>Los Angeles, CA</option></select>
+   <input id="finish" name="finish" value="Los Angeles, CA" required maxlength="150" aria-label="Other destination" placeholder="City, ST or latitude, longitude" hidden>
+   <p class="hint">Choose a demo city, or “Other location” to enter your own. <a href="/api/docs/">Open API client</a></p>
    <label for="initial">Fuel already in the tank (gallons)</label><input id="initial" type="number" value="50" min="0" max="50" step="0.000001" required>
    <p class="hint">Trip cost covers new purchases. The starting tank’s acquisition cost is excluded.</p>
    <label for="reserve">Minimum fuel at destination (gallons)</label><input id="reserve" type="number" value="0" min="0" max="50" step="0.000001" required>

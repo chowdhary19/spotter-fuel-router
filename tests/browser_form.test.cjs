@@ -9,6 +9,7 @@ const fixture = JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures/synthe
 
 class Element {
   constructor() { this.value = ""; this.textContent = ""; this.children = []; this.handlers = {}; }
+  focus() { this.focused = true; }
   append(...children) { this.children.push(...children); }
   replaceChildren(...children) { this.children = children; }
   addEventListener(name, handler) { this.handlers[name] = handler; }
@@ -63,4 +64,32 @@ test("ambiguous textual inputs remain strings for authoritative backend validati
   app.get("initial").value = "50";
   app.get("reserve").value = "5";
   assert.equal((await app.submit()).start, "123 Main St, TX");
+});
+
+
+test("city dropdown selections are the locations actually sent to the API", async () => {
+  const app = load();
+  for (const [id, value] of [["start", "Dallas, TX"], ["finish", "Houston, TX"]]) {
+    app.get(`${id}-choice`).value = value;
+    app.get(`${id}-choice`).handlers.change();
+    assert.equal(app.get(id).hidden, true);
+  }
+  const sent = await app.submit();
+  assert.equal(sent.start, "Dallas, TX");
+  assert.equal(sent.finish, "Houston, TX");
+});
+
+test("Other location supports coordinates after a preset and saved custom locations stay editable", async () => {
+  const saved = structuredClone(fixture);
+  saved.start = {label:"41.87812, -87.62988",latitude:41.8781234,longitude:-87.6298765,resolution:"user-supplied coordinates"};
+  const app = load(saved);
+  assert.equal(app.get("start-choice").value, "");
+  assert.equal(app.get("start").hidden, false);
+  assert.equal(app.get("start").value, "41.8781234, -87.6298765");
+  app.get("finish-choice").value = "";
+  app.get("finish-choice").handlers.change();
+  assert.equal(app.get("finish").hidden, false);
+  assert.equal(app.get("finish").focused, true);
+  app.get("finish").value = "29.785756, -95.388806";
+  assert.deepEqual((await app.submit()).finish, {latitude:29.785756,longitude:-95.388806});
 });
