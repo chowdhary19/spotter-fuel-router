@@ -1,0 +1,15 @@
+.git
+.venv
+.pytest_cache
+.ruff_cache
+__pycache__
+.env
+var
+data/raw
+data/enrichment/raw
+tests
+.data-source-cache
+data/price_audit.json
+data/coordinate_match_audit.json
+data/station_coordinates.csv
+data/official_records.json

@@ -1,0 +1,260 @@
+{
+  "metadata": {
+    "provider": "GeoNames",
+    "source_url": "https://download.geonames.org/export/dump/cities15000.zip",
+    "documentation_url": "https://download.geonames.org/export/dump/readme.txt",
+    "license": "Creative Commons Attribution 4.0",
+    "license_url": "https://creativecommons.org/licenses/by/4.0/",
+    "attribution": "Contains GeoNames data, https://www.geonames.org/, licensed CC BY 4.0. Selected and matched to Census GEOIDs; no coordinate modification.",
+    "downloaded_at_utc": "2026-11-25T12:10:35.209007+00:00",
+    "source_sha256": "6068dba5be2fa7e2b9ef51a1350875b404255bcd968551a5428f83038ee36f22",
+    "source_bytes": 3368832,
+    "extracted_sha256": "2d451737b44a228ef48d97f602fbd7529477c1d8e60bf201f8abaedc08fabcee",
+    "source_rows": 34246,
+    "scope": "Only Census representative points outside the bundled US land boundary; unique city/state matches from cities15000",
+    "matched": 9,
+    "unmatched": 12,
+    "limitations": "GeoNames is provided as is. Land membership does not prove access to a drivable road; routing snap validation remains required."
+  },
+  "overrides": {
+    "0616378": {
+      "name": "Coronado",
+      "state": "CA",
+      "latitude": 32.68589,
+      "longitude": -117.18309,
+      "geonames_id": "5339663",
+      "geonames_name": "Coronado",
+      "geonames_feature_code": "PPL",
+      "geonames_modified_date": "2017-03-09",
+      "source_url": "https://www.geonames.org/5339663/",
+      "resolution": "GeoNames populated-place point; replaces offshore Census representative point, not a street address",
+      "original_census_point": {
+        "latitude": 32.657146,
+        "longitude": -117.156747
+      },
+      "match_method": "unique exact normalized primary/ASCII city name + US country + state; populated-place feature; point inside Census land boundary"
+    },
+    "0645400": {
+      "name": "Manhattan Beach",
+      "state": "CA",
+      "latitude": 33.88474,
+      "longitude": -118.41091,
+      "geonames_id": "5370082",
+      "geonames_name": "Manhattan Beach",
+      "geonames_feature_code": "PPL",
+      "geonames_modified_date": "2017-03-09",
+      "source_url": "https://www.geonames.org/5370082/",
+      "resolution": "GeoNames populated-place point; replaces offshore Census representative point, not a street address",
+      "original_census_point": {
+        "latitude": 33.892367,
+        "longitude": -118.416573
+      },
+      "match_method": "unique exact normalized primary/ASCII city name + US country + state; populated-place feature; point inside Census land boundary"
+    },
+    "0648872": {
+      "name": "Monterey",
+      "state": "CA",
+      "latitude": 36.60024,
+      "longitude": -121.89468,
+      "geonames_id": "5374361",
+      "geonames_name": "Monterey",
+      "geonames_feature_code": "PPL",
+      "geonames_modified_date": "2017-03-09",
+      "source_url": "https://www.geonames.org/5374361/",
+      "resolution": "GeoNames populated-place point; replaces offshore Census representative point, not a street address",
+      "original_census_point": {
+        "latitude": 36.601233,
+        "longitude": -121.882789
+      },
+      "match_method": "unique exact normalized primary/ASCII city name + US country + state; populated-place feature; point inside Census land boundary"
+    },
+    "0667000": {
+      "name": "San Francisco",
+      "state": "CA",
+      "latitude": 37.77493,
+      "longitude": -122.41942,
+      "geonames_id": "5391959",
+      "geonames_name": "San Francisco",
+      "geonames_feature_code": "PPLA2",
+      "geonames_modified_date": "2025-07-22",
+      "source_url": "https://www.geonames.org/5391959/",
+      "resolution": "GeoNames populated-place point; replaces offshore Census representative point, not a street address",
+      "original_census_point": {
+        "latitude": 37.727239,
+        "longitude": -123.032229
+      },
+      "match_method": "unique exact normalized primary/ASCII city name + US country + state; populated-place feature; point inside Census land boundary"
+    },
+    "0670000": {
+      "name": "Santa Monica",
+      "state": "CA",
+      "latitude": 34.01949,
+      "longitude": -118.49138,
+      "geonames_id": "5393212",
+      "geonames_name": "Santa Monica",
+      "geonames_feature_code": "PPL",
+      "geonames_modified_date": "2021-05-06",
+      "source_url": "https://www.geonames.org/5393212/",
+      "resolution": "GeoNames populated-place point; replaces offshore Census representative point, not a street address",
+      "original_census_point": {
+        "latitude": 34.010911,
+        "longitude": -118.498245
+      },
+      "match_method": "unique exact normalized primary/ASCII city name + US country + state; populated-place feature; point inside Census land boundary"
+    },
+    "0673262": {
+      "name": "South San Francisco",
+      "state": "CA",
+      "latitude": 37.65466,
+      "longitude": -122.40775,
+      "geonames_id": "5397765",
+      "geonames_name": "South San Francisco",
+      "geonames_feature_code": "PPL",
+      "geonames_modified_date": "2026-09-16",
+      "source_url": "https://www.geonames.org/5397765/",
+      "resolution": "GeoNames populated-place point; replaces offshore Census representative point, not a street address",
+      "original_census_point": {
+        "latitude": 37.655104,
+        "longitude": -122.376234
+      },
+      "match_method": "unique exact normalized primary/ASCII city name + US country + state; populated-place feature; point inside Census land boundary"
+    },
+    "1218575": {
+      "name": "Dunedin",
+      "state": "FL",
+      "latitude": 28.0199,
+      "longitude": -82.77323,
+      "geonames_id": "4153759",
+      "geonames_name": "Dunedin",
+      "geonames_feature_code": "PPL",
+      "geonames_modified_date": "2017-03-09",
+      "source_url": "https://www.geonames.org/4153759/",
+      "resolution": "GeoNames populated-place point; replaces offshore Census representative point, not a street address",
+      "original_census_point": {
+        "latitude": 28.038054,
+        "longitude": -82.794776
+      },
+      "match_method": "unique exact normalized primary/ASCII city name + US country + state; populated-place feature; point inside Census land boundary"
+    },
+    "2360545": {
+      "name": "Portland",
+      "state": "ME",
+      "latitude": 43.65737,
+      "longitude": -70.2589,
+      "geonames_id": "4975802",
+      "geonames_name": "Portland",
+      "geonames_feature_code": "PPLA2",
+      "geonames_modified_date": "2019-09-05",
+      "source_url": "https://www.geonames.org/4975802/",
+      "resolution": "GeoNames populated-place point; replaces offshore Census representative point, not a street address",
+      "original_census_point": {
+        "latitude": 43.633157,
+        "longitude": -70.185305
+      },
+      "match_method": "unique exact normalized primary/ASCII city name + US country + state; populated-place feature; point inside Census land boundary"
+    },
+    "2507000": {
+      "name": "Boston",
+      "state": "MA",
+      "latitude": 42.35843,
+      "longitude": -71.05977,
+      "geonames_id": "4930956",
+      "geonames_name": "Boston",
+      "geonames_feature_code": "PPLA",
+      "geonames_modified_date": "2026-04-14",
+      "source_url": "https://www.geonames.org/4930956/",
+      "resolution": "GeoNames populated-place point; replaces offshore Census representative point, not a street address",
+      "original_census_point": {
+        "latitude": 42.332735,
+        "longitude": -71.013513
+      },
+      "match_method": "unique exact normalized primary/ASCII city name + US country + state; populated-place feature; point inside Census land boundary"
+    }
+  },
+  "unmatched": [
+    {
+      "census_geoid": "0213550",
+      "city": "Chignik",
+      "state": "AK",
+      "reason": "no_unique_exact_name_state_match_in_cities15000",
+      "candidates": 0
+    },
+    {
+      "census_geoid": "0240400",
+      "city": "Klawock",
+      "state": "AK",
+      "reason": "no_unique_exact_name_state_match_in_cities15000",
+      "candidates": 0
+    },
+    {
+      "census_geoid": "0282200",
+      "city": "Valdez",
+      "state": "AK",
+      "reason": "no_unique_exact_name_state_match_in_cities15000",
+      "candidates": 0
+    },
+    {
+      "census_geoid": "0953120",
+      "city": "Niantic",
+      "state": "CT",
+      "reason": "no_unique_exact_name_state_match_in_cities15000",
+      "candidates": 0
+    },
+    {
+      "census_geoid": "0973700",
+      "city": "Stonington",
+      "state": "CT",
+      "reason": "no_unique_exact_name_state_match_in_cities15000",
+      "candidates": 0
+    },
+    {
+      "census_geoid": "0976150",
+      "city": "Tokeneke",
+      "state": "CT",
+      "reason": "no_unique_exact_name_state_match_in_cities15000",
+      "candidates": 0
+    },
+    {
+      "census_geoid": "1202400",
+      "city": "Atlantic Beach",
+      "state": "FL",
+      "reason": "no_unique_exact_name_state_match_in_cities15000",
+      "candidates": 0
+    },
+    {
+      "census_geoid": "1248100",
+      "city": "Neptune Beach",
+      "state": "FL",
+      "reason": "no_unique_exact_name_state_match_in_cities15000",
+      "candidates": 0
+    },
+    {
+      "census_geoid": "1278925",
+      "city": "Yankeetown",
+      "state": "FL",
+      "reason": "no_unique_exact_name_state_match_in_cities15000",
+      "candidates": 0
+    },
+    {
+      "census_geoid": "2633440",
+      "city": "Grand Marais",
+      "state": "MI",
+      "reason": "no_unique_exact_name_state_match_in_cities15000",
+      "candidates": 0
+    },
+    {
+      "census_geoid": "3436480",
+      "city": "Keansburg",
+      "state": "NJ",
+      "reason": "no_unique_exact_name_state_match_in_cities15000",
+      "candidates": 0
+    },
+    {
+      "census_geoid": "3748740",
+      "city": "Ocracoke",
+      "state": "NC",
+      "reason": "no_unique_exact_name_state_match_in_cities15000",
+      "candidates": 0
+    }
+  ]
+}

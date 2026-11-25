@@ -1,0 +1,19 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.env
+var/
+*.sqlite3
+.DS_Store
+data/raw/
+data/enrichment/raw/
+# Employer prices and third-party location feeds stay local. Rebuild with prepare_data.py.
+data/stations.json
+data/price_audit.json
+data/station_coordinates.csv
+data/coordinate_match_audit.json
+data/official_records.json
+data/preparation_manifest.json
+.data-source-cache/

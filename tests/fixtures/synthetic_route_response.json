@@ -1,0 +1,208 @@
+{
+  "route_id": "0123456789abcdef0123456789abcdef",
+  "map_url": "http://127.0.0.1:8765/routes/0123456789abcdef0123456789abcdef/map/",
+  "start": {
+    "label": "Start",
+    "longitude": -100.0,
+    "latitude": 40.0
+  },
+  "finish": {
+    "label": "Finish",
+    "longitude": -90.0,
+    "latitude": 40.0
+  },
+  "distance_miles": "860.000",
+  "base_route_distance_miles": "800.000",
+  "extra_route_miles": "60.000",
+  "duration_seconds": 1000,
+  "tank_capacity_gallons": "50",
+  "maximum_range_miles": "500",
+  "mpg": "10",
+  "initial_fuel_gallons": "50.000000",
+  "reserve_gallons": "0.000000",
+  "fuel_consumed_gallons": "86.000000",
+  "fuel_purchased_gallons": "36.000000",
+  "final_fuel_gallons": "0.000000",
+  "total_fuel_cost_usd": "123.00",
+  "cost_basis": "Fuel purchased during this trip; acquisition cost of fuel already in the tank is excluded. USD per US gallon assumed for US source rows.",
+  "fuel_stops": [
+    {
+      "station_id": "a",
+      "name": "Station a",
+      "address": "a Test Road",
+      "city": "Test City",
+      "state": "KS",
+      "latitude": 40.0,
+      "longitude": -97.0,
+      "price_usd_per_gallon": "4",
+      "gallons": "15.000000",
+      "cost_usd": "60.00",
+      "route_mile": "320.000",
+      "arrival_fuel_gallons": "18.000000",
+      "departure_fuel_gallons": "33.000000",
+      "coordinate_source": "synthetic-test-fixture"
+    },
+    {
+      "station_id": "b",
+      "name": "Station b",
+      "address": "b Test Road",
+      "city": "Test City",
+      "state": "KS",
+      "latitude": 40.0,
+      "longitude": -94.0,
+      "price_usd_per_gallon": "3",
+      "gallons": "21.000000",
+      "cost_usd": "63.00",
+      "route_mile": "650.000",
+      "arrival_fuel_gallons": "0.000000",
+      "departure_fuel_gallons": "21.000000",
+      "coordinate_source": "synthetic-test-fixture"
+    }
+  ],
+  "road_leg_distances_miles": [
+    "320.000",
+    "330.000",
+    "210.000"
+  ],
+  "visited_station_ids": [
+    "a",
+    "b"
+  ],
+  "geojson": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              -100.0,
+              40.0
+            ],
+            [
+              -97.0,
+              40.0
+            ],
+            [
+              -94.0,
+              40.0
+            ],
+            [
+              -90.0,
+              40.0
+            ]
+          ]
+        },
+        "properties": {
+          "kind": "route"
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [
+            -100.0,
+            40.0
+          ]
+        },
+        "properties": {
+          "kind": "start",
+          "name": "Start"
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [
+            -90.0,
+            40.0
+          ]
+        },
+        "properties": {
+          "kind": "finish",
+          "name": "Finish"
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [
+            -97.0,
+            40.0
+          ]
+        },
+        "properties": {
+          "kind": "fuel_stop",
+          "station_id": "a",
+          "name": "Station a",
+          "address": "a Test Road",
+          "city": "Test City",
+          "state": "KS",
+          "latitude": 40.0,
+          "longitude": -97.0,
+          "price_usd_per_gallon": "4",
+          "gallons": "15.000000",
+          "cost_usd": "60.00",
+          "route_mile": "320.000",
+          "arrival_fuel_gallons": "18.000000",
+          "departure_fuel_gallons": "33.000000",
+          "coordinate_source": "synthetic-test-fixture"
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [
+            -94.0,
+            40.0
+          ]
+        },
+        "properties": {
+          "kind": "fuel_stop",
+          "station_id": "b",
+          "name": "Station b",
+          "address": "b Test Road",
+          "city": "Test City",
+          "state": "KS",
+          "latitude": 40.0,
+          "longitude": -94.0,
+          "price_usd_per_gallon": "3",
+          "gallons": "21.000000",
+          "cost_usd": "63.00",
+          "route_mile": "650.000",
+          "arrival_fuel_gallons": "0.000000",
+          "departure_fuel_gallons": "21.000000",
+          "coordinate_source": "synthetic-test-fixture"
+        }
+      }
+    ]
+  },
+  "validation": {
+    "road_distances_verified": true,
+    "fuel_balance_verified": true,
+    "optimization_scope": "Minimum fuel purchase cost on the selected, road-validated station itinerary. Candidate projection and itinerary selection are heuristics, not a global cheapest-route guarantee.",
+    "candidate_corridor_miles": 2,
+    "routing_provider": "OSRM driving (car profile, not commercial-truck restrictions)",
+    "initial_route_api_calls": 2
+  },
+  "data": {
+    "source": "synthetic",
+    "version": "test-1"
+  },
+  "warnings": [
+    "Fuel prices are from the supplied undated assessment snapshot, not live pump prices.",
+    "Conflicting quotes use the highest recorded price for each OPIS station; fuel type is unspecified in the source.",
+    "Only stations with accepted coordinate evidence are eligible. Unlocated stations are excluded, so feasible cheaper alternatives may be missing.",
+    "OSRM road snapping checks proximity, not driveway access, opening hours, fuel availability or truck legality."
+  ],
+  "performance": {
+    "cache_hit": false,
+    "route_api_calls": 2,
+    "elapsed_ms": 1
+  }
+}
