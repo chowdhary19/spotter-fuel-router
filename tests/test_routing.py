@@ -251,6 +251,41 @@ class OSRMClientTests(TestCase):
                 payload["routes"][0]["geometry"] = geometry
                 self.assert_invalid_response(payload)
 
+    def test_geometry_on_another_continent_is_not_a_valid_map_for_us_waypoints(self):
+        payload = valid_payload()
+        payload["routes"][0]["geometry"]["coordinates"] = [[10, 50], [11, 50]]
+        self.assert_invalid_response(payload)
+
+    def test_reversed_geometry_is_rejected_even_with_consistent_leg_distances(self):
+        payload = valid_payload()
+        payload["routes"][0]["geometry"]["coordinates"].reverse()
+        self.assert_invalid_response(payload)
+
+    def test_each_geometry_endpoint_must_match_its_snap_within_rounding_tolerance(self):
+        for index in (0, -1):
+            with self.subTest(endpoint=index):
+                # Approximately 2.2 metres: more than coordinate rounding.
+                payload = valid_payload()
+                payload["routes"][0]["geometry"]["coordinates"][index][1] += 0.00002
+                self.assert_invalid_response(payload)
+
+    def test_submetre_geometry_rounding_is_accepted_without_moving_the_snaps(self):
+        payload = valid_payload()
+        payload["routes"][0]["geometry"]["coordinates"][0][1] += 0.000004
+        payload["routes"][0]["geometry"]["coordinates"][-1][1] -= 0.000004
+        self.response.json.return_value = payload
+        route = self.client.route(POINTS)
+        self.assertEqual(route.snapped_waypoints, tuple(POINTS))
+
+    def test_geometry_is_compared_with_snapped_roads_not_unsnapped_input_points(self):
+        payload = valid_payload()
+        for index in (0, -1):
+            payload["waypoints"][index]["location"][1] += 0.00005
+            payload["routes"][0]["geometry"]["coordinates"][index][1] += 0.00005
+        self.response.json.return_value = payload
+        route = self.client.route(POINTS)
+        self.assertEqual(route.coordinates, route.snapped_waypoints)
+
     def test_route_and_snapped_coordinates_must_be_valid_geographic_pairs(self):
         bad_points = [
             None,

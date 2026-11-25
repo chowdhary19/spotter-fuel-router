@@ -1,0 +1,16 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+ <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+ <title>Fuel route planner · API client</title>
+ <link rel="stylesheet" href="{% static 'vendor/swagger-ui/swagger-ui.css' %}">
+ <style>body{margin:0;background:#fafafa}.navigation{padding:18px 4%;font:16px system-ui;background:#19303d;color:white}.navigation a{color:white;margin-right:24px}</style>
+</head>
+<body>
+ <nav class="navigation"><a href="/">Route map</a><a href="/api/schema/">OpenAPI schema</a><span>Local API client · road routing uses OSRM</span></nav>
+ <div id="swagger-ui"></div>
+ <script src="{% static 'vendor/swagger-ui/swagger-ui-bundle.js' %}"></script>
+ <script src="{% static 'api-docs.js' %}"></script>
+</body>
+</html>

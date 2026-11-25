@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build private local catalog inputs from the assessment CSV and official directories.
+"""Build a private catalog from the CSV, direct directories and optional pinned feeds.
 
 Run: uv run --group data python scripts/prepare_data.py --fuel-csv path/to/fuel.csv
 Use --offline --source-dir path/to/snapshots to reproduce a saved source snapshot.
@@ -13,12 +13,19 @@ import argparse
 import csv
 import json
 import time
+from collections import Counter
 from datetime import UTC, datetime
 from pathlib import Path
 
 import pyjson5
 import requests
 from build_catalog import build_catalog, digest, parse_prices, write_json
+from match_atp_locations import (
+    DEFAULT_MANIFEST,
+    load_records,
+    match_supplemental,
+    read_manifest,
+)
 from match_chain_locations import (
     LOVES_URL,
     PILOT_URL,
@@ -117,7 +124,12 @@ def prepare(
     output_dir: Path,
     offline: bool,
     state_boundaries_file: Path = Path("data/us-boundary.geojson"),
+    supplemental_source_dir: Path | None = None,
+    supplemental_manifest_file: Path = DEFAULT_MANIFEST,
+    download_supplemental: bool = False,
 ):
+    if offline and download_supplemental:
+        raise ValueError("Offline mode cannot download supplemental sources")
     stations, price_metadata = parse_prices(fuel_csv)
     cities = json.loads(cities_file.read_text())
     if not isinstance(cities.get("places"), list) or not cities["places"]:
@@ -162,6 +174,45 @@ def prepare(
     )
     if not coordinates:
         raise ValueError("No stations matched; source schema or coverage needs review")
+    if supplemental_source_dir is not None or download_supplemental:
+        manifest = read_manifest(supplemental_manifest_file)
+        supplemental_source_dir = supplemental_source_dir or source_dir / "alltheplaces"
+        if download_supplemental:
+            for source in manifest["snapshots"]:
+                downloaded = download(source["url"], supplemental_source_dir / source["filename"])
+                if downloaded["sha256"] != source["sha256"]:
+                    raise ValueError(f"Supplemental download hash mismatch: {source['filename']}")
+        records, supplemental_provenance = load_records(supplemental_source_dir, manifest)
+        additional, supplemental_audit = match_supplemental(
+            stations, records, cities, state_boundaries, coordinates
+        )
+        direct_count = len(coordinates)
+        coordinates.extend(additional)
+        added_ids = {point["opis_id"] for point in additional}
+        audit["unmatched"] = [row for row in audit["unmatched"] if row["opis_id"] not in added_ids]
+        audit["matches"] = coordinates
+        audit["counts"].update(
+            {
+                "matched_stations": len(coordinates),
+                "unmatched_stations": len(audit["unmatched"]),
+                "direct_source_matched_stations": direct_count,
+                "supplemental_matched_stations": len(additional),
+                "matched_by_chain": dict(sorted(Counter(p["chain"] for p in coordinates).items())),
+                "matched_by_state": dict(
+                    sorted(Counter(p["official_state"] for p in coordinates).items())
+                ),
+                "rejected_by_reason": dict(
+                    sorted(Counter(row["reason"] for row in audit["unmatched"]).items())
+                ),
+            }
+        )
+        audit["policy"]["supplemental"] = supplemental_audit["policy"]
+        audit["supplemental"] = supplemental_audit
+        provenance["supplemental"] = {
+            "manifest_sha256": digest(supplemental_manifest_file),
+            "manifest": manifest,
+            **supplemental_provenance,
+        }
     output_dir.mkdir(parents=True, exist_ok=True)
     coordinate_file = output_dir / "station_coordinates.csv"
     with coordinate_file.open("w", encoding="utf-8", newline="") as handle:
@@ -208,6 +259,17 @@ def main() -> None:
     parser.add_argument("--source-dir", type=Path, default=Path(".data-source-cache"))
     parser.add_argument("--output-dir", type=Path, default=Path("data"))
     parser.add_argument("--offline", action="store_true")
+    parser.add_argument(
+        "--supplemental-source-dir",
+        type=Path,
+        help="Use local pinned AllThePlaces snapshots after hash validation",
+    )
+    parser.add_argument("--supplemental-manifest", type=Path, default=DEFAULT_MANIFEST)
+    parser.add_argument(
+        "--download-supplemental-sources",
+        action="store_true",
+        help="Fetch the pinned snapshots into supplemental-source-dir (or the source cache)",
+    )
     args = parser.parse_args()
     try:
         result = prepare(
@@ -217,6 +279,9 @@ def main() -> None:
             args.output_dir,
             args.offline,
             args.state_boundaries,
+            args.supplemental_source_dir,
+            args.supplemental_manifest,
+            args.download_supplemental_sources,
         )
     except (ValueError, KeyError, OSError, requests.RequestException) as exc:
         parser.error(str(exc))

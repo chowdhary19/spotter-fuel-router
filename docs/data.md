@@ -1,13 +1,13 @@
 # Data provenance and rebuild
 
-Prices come only from the assessment CSV. Official directories supply actual station coordinates and identity evidence, never replacement prices. Station preparation happens before serving requests.
+Prices come only from the assessment CSV. Direct official directories and optional pinned AllThePlaces locator snapshots supply station coordinates and identity evidence, never replacement prices. Station preparation happens before serving requests.
 
 ## Rebuild locally
 
 ```sh
 uv sync --locked --group data
 uv run --group data python scripts/prepare_data.py \
-  --fuel-csv /path/to/fuel-prices-for-be-assessment.csv
+  --fuel-csv /path/to/fuel-prices-for-be-assessment.csv --download-supplemental-sources
 ```
 
 | Source | Evidence used |
@@ -16,14 +16,15 @@ uv run --group data python scripts/prepare_data.py \
 | [Love's location feed](https://www.loves.com/api/fetch_stores) | Store number, city/state, facility type, locator coordinates |
 | [TA / Petro location sheet](https://www.ta-petro.com/api/locationsdata/download/) | Site ID or distinctive exact location name, city/state, coordinates |
 
-Preparation performs three bounded HTTPS downloads, records hashes and timestamps, parses the embedded Pilot array without executing JavaScript, and reads XLSX values without evaluating formulas. `.data-source-cache/source_manifest.json` preserves source provenance. A missing source or changed schema can prevent setup; fresh downloads can change coverage.
+The base preparation performs three bounded HTTPS downloads, records hashes and timestamps, parses the embedded Pilot array without executing JavaScript, and reads XLSX values without evaluating formulas. `.data-source-cache/source_manifest.json` preserves source provenance. A missing source or changed schema can prevent setup; fresh downloads can change coverage. The supplemental flag downloads ten fixed, hash-verified AllThePlaces snapshots; [supplemental matching](supplemental-data.md) documents their attribution and stricter identity checks. Omit the flag for the smaller direct-directory-only build.
 
 The assessment attachment, commercial feeds, caches, and derived station catalogs are excluded from the public repository. Public accessibility is not asserted to grant redistribution rights. Keep the local source cache to reproduce that particular snapshot:
 
 ```sh
 uv run --group data python scripts/prepare_data.py \
   --fuel-csv /path/to/fuel-prices-for-be-assessment.csv \
-  --offline --source-dir .data-source-cache
+  --offline --source-dir .data-source-cache \
+  --supplemental-source-dir .data-source-cache/alltheplaces
 ```
 
 An independently supplied coordinate file can be used instead:
@@ -52,12 +53,15 @@ Pilot's primary public business and site must both be open. Love's and TA record
 | Excluded Canadian rows / IDs | 620 / 112 |
 | US rows / IDs | 7,531 / 6,626 |
 | US IDs with conflicting quotes | 487 |
-| Accepted stations / represented states | 1,394 / 45 |
-| Unlocated US IDs | 5,232 |
+| Accepted stations / represented contiguous states | 2,363 / 48 |
+| US rows represented by accepted station IDs | 2,853 |
+| Unlocated US IDs / their quote rows | 4,263 / 4,678 |
 
-Accepted records comprise 409 Pilot, 170 Flying J, 69 ONE9, 15 Mr. Fuel, five other explicitly listed Pilot-network partners, 523 Love's, 158 TA, and 45 Petro stations. These are source-identity categories, not a claim of current ownership.
+The 1,394 directly sourced records comprise 409 Pilot, 170 Flying J, 69 ONE9, 15 Mr. Fuel, five other explicitly listed Pilot-network partners, 523 Love's, 158 TA, and 45 Petro stations. The supplemental match adds 969 records, preserving all original station objects and price evidence. These are source-identity categories, not a claim of current ownership.
 
-The raw CSV covers the 48 contiguous states but has no AK/HI/DC prices. Its eight California station IDs are confined to El Centro, Calexico, Thermal, Jacumba, Coachella, Brawley, and Westmorland. It supplies no Bay Area or central/northern California prices. Full CSV geocoding would still not establish unrestricted nationwide coverage. The prepared subset also has no accepted stations in Delaware, Maine, or Vermont. Missing geography or prices can cause a coverage error or hide a cheaper feasible alternative.
+The raw CSV covers the 48 contiguous states but has no AK/HI/DC prices. Its eight California station IDs are confined to El Centro, Calexico, Thermal, Jacumba, Coachella, Brawley, and Westmorland. It supplies no Bay Area or central/northern California prices. Full CSV geocoding would still not establish unrestricted nationwide coverage. The expanded subset includes Delaware, Maine and Vermont, but some regions still lack usable stations. Missing geography or prices can cause a coverage error or hide a cheaper feasible alternative.
+
+All 8,151 CSV rows are classified: 2,853 US quote rows belong to located stations, 4,678 US quote rows belong to unresolved stations, and 620 Canadian rows are excluded. This is complete row accounting, not complete station utilization. The audit retains all 7,531 US quotes and their provenance.
 
 Source CSV SHA-256: `c704371f141ded9c54df6c32d488a0ba2ceb589f88c936c967daa5330e0cd241`.
 

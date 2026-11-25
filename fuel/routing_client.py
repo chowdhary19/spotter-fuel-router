@@ -19,6 +19,9 @@ MAX_RESPONSE_BYTES = 8 * 1024 * 1024
 RESPONSE_BUDGET_SECONDS = 20.0
 CONNECT_TIMEOUT_SECONDS = 3
 READ_TIMEOUT_SECONDS = 12
+# Full GeoJSON and snapped waypoint coordinates can use different decimal
+# precision. One metre permits coordinate rounding, not a different road line.
+GEOMETRY_ENDPOINT_TOLERANCE_METERS = 1.0
 _provider_lock = threading.Lock()
 _last_call = 0.0
 
@@ -290,6 +293,10 @@ class OSRMClient:
                 and math.isfinite(duration)
                 and duration >= 0
                 and all(valid_point(p) for p in coords)
+                and _point_distance_meters(coords[0], snapped[0])
+                <= GEOMETRY_ENDPOINT_TOLERANCE_METERS
+                and _point_distance_meters(coords[-1], snapped[-1])
+                <= GEOMETRY_ENDPOINT_TOLERANCE_METERS
             )
             if not valid:
                 raise ValueError("Inconsistent route geometry or legs")

@@ -17,9 +17,10 @@
    <h2>Plan a drive</h2>
    <label for="start">From</label><input id="start" name="start" value="Chicago, IL" required maxlength="150">
    <label for="finish">To</label><input id="finish" name="finish" value="Los Angeles, CA" required maxlength="150">
-   <p class="hint">Use City, ST. The JSON API also accepts latitude and longitude.</p>
-   <label for="initial">Fuel already in the tank (gallons)</label><input id="initial" type="number" value="50" min="0" max="50" step="0.1" required>
+   <p class="hint">Use City, ST or latitude, longitude. <a href="/api/docs/">Open API client</a></p>
+   <label for="initial">Fuel already in the tank (gallons)</label><input id="initial" type="number" value="50" min="0" max="50" step="0.000001" required>
    <p class="hint">Trip cost covers new purchases. The starting tank’s acquisition cost is excluded.</p>
+   <label for="reserve">Minimum fuel at destination (gallons)</label><input id="reserve" type="number" value="0" min="0" max="50" step="0.000001" required>
    <button id="submit" type="submit">Find route &amp; fuel stops</button>
   </form>
   <p id="status" role="status" aria-live="polite">Enter your route to begin.</p>
@@ -30,6 +31,6 @@
   <details><summary>Assumptions &amp; data coverage</summary><div id="assumptions"><p>Prices are an undated assessment snapshot. Only stations with accepted coordinate evidence are eligible. Locations resolve locally, and selected stops are checked with actual road routing.</p></div></details>
  </div></section>
 </main>
-<footer>Road data © OpenStreetMap contributors · Routing by OSRM · Endpoint places and boundaries: US Census Bureau. Car routing does not account for commercial-truck restrictions.</footer>
+<footer>Road data © OpenStreetMap contributors · Routing by OSRM · <a href="https://www.openstreetmap.org/fixthemap">Fix the map</a> · Endpoint places and boundaries: US Census Bureau. Car routing does not account for commercial-truck restrictions.</footer>
 {% if saved_route %}{{ saved_route|json_script:"saved-route" }}{% endif %}
 </body></html>

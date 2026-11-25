@@ -3,7 +3,9 @@
 import json
 import logging
 import re
+from functools import lru_cache
 
+from django.conf import settings
 from django.core.cache import cache
 from django.core.exceptions import RequestDataTooBig
 from django.http import JsonResponse
@@ -104,3 +106,19 @@ def route_map(request, route_id):
             status=404,
         )
     return render(request, "index.html", {"saved_route": result})
+
+
+@lru_cache(maxsize=1)
+def _openapi_schema():
+    """Read the versioned contract used by the local API client."""
+    return json.loads((settings.BASE_DIR / "docs" / "openapi.json").read_text())
+
+
+@require_GET
+def api_schema(request):
+    return JsonResponse(_openapi_schema())
+
+
+@require_GET
+def api_docs(request):
+    return render(request, "api_docs.html")

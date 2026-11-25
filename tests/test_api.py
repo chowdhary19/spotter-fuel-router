@@ -311,3 +311,21 @@ def test_health_does_not_claim_ready_when_no_station_coordinates_loaded(api):
     response = client.get("/health/")
     assert response.status_code == 503
     assert response.json() == {"status": "missing_station_coordinates", "routable_stations": 0}
+
+
+def test_browser_api_client_serves_local_assets_and_route_contract(api):
+    client, routed, _ = api
+    response = client.get("/api/docs/")
+    assert response.status_code == 200
+    assert b"vendor/swagger-ui/swagger-ui-bundle.js" in response.content
+    assert b"https://" not in response.content
+    schema = client.get("/api/schema/").json()
+    assert schema["servers"] == [{"url": "/"}]
+    operation = schema["paths"]["/api/route/"]["post"]
+    assert operation["requestBody"]["content"]["application/json"]["schema"]["required"] == [
+        "start",
+        "finish",
+    ]
+    assert set(operation["responses"]) >= {"200", "400", "422", "503"}
+    assert post(client, request_body()).status_code == 200
+    assert len(routed) == 1

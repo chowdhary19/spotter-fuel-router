@@ -1,0 +1,411 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Fuel route planner API",
+    "version": "0.1.0",
+    "description": "Plan US road trips with a 500-mile range at 10 mpg. Cost means new fuel purchases; the starting tank defaults to 50 gallons. Select an example, click Try it out, then Execute. Open map_url to inspect the returned itinerary."
+  },
+  "servers": [
+    {
+      "url": "/"
+    }
+  ],
+  "paths": {
+    "/api/route/": {
+      "post": {
+        "summary": "Find a route and fuel-purchase plan",
+        "operationId": "planFuelRoute",
+        "description": "City/state names or US coordinates. Long trips use at most three routing calls. Missing station coverage returns an explicit error.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "start",
+                  "finish"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "start": {
+                    "oneOf": [
+                      {
+                        "type": "string",
+                        "example": "Chicago, IL"
+                      },
+                      {
+                        "type": "object",
+                        "required": [
+                          "latitude",
+                          "longitude"
+                        ],
+                        "additionalProperties": false,
+                        "properties": {
+                          "latitude": {
+                            "type": "number",
+                            "minimum": -90,
+                            "maximum": 90
+                          },
+                          "longitude": {
+                            "type": "number",
+                            "minimum": -180,
+                            "maximum": 180
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "finish": {
+                    "oneOf": [
+                      {
+                        "type": "string",
+                        "example": "Chicago, IL"
+                      },
+                      {
+                        "type": "object",
+                        "required": [
+                          "latitude",
+                          "longitude"
+                        ],
+                        "additionalProperties": false,
+                        "properties": {
+                          "latitude": {
+                            "type": "number",
+                            "minimum": -90,
+                            "maximum": 90
+                          },
+                          "longitude": {
+                            "type": "number",
+                            "minimum": -180,
+                            "maximum": 180
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "initial_fuel_gallons": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 50,
+                    "default": 50,
+                    "multipleOf": 1e-06,
+                    "description": "US gallons, at most six decimal places."
+                  },
+                  "reserve_gallons": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 50,
+                    "default": 0,
+                    "multipleOf": 1e-06,
+                    "description": "US gallons, at most six decimal places."
+                  }
+                }
+              },
+              "examples": {
+                "long_trip": {
+                  "summary": "Long trip with fuel stops",
+                  "value": {
+                    "start": "Chicago, IL",
+                    "finish": "Los Angeles, CA"
+                  }
+                },
+                "short_trip": {
+                  "summary": "Short trip using starting fuel",
+                  "value": {
+                    "start": "Dallas, TX",
+                    "finish": "Houston, TX"
+                  }
+                },
+                "reserve": {
+                  "summary": "Arrive with 5 gallons in reserve",
+                  "value": {
+                    "start": "New York, NY",
+                    "finish": "Miami, FL",
+                    "reserve_gallons": 5
+                  }
+                },
+                "invalid_city": {
+                  "summary": "Input validation example",
+                  "value": {
+                    "start": "Not A Real City, TX",
+                    "finish": "Dallas, TX"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Road-validated route and itemized purchases",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "map_url",
+                    "distance_miles",
+                    "fuel_stops",
+                    "total_fuel_cost_usd",
+                    "geojson",
+                    "validation",
+                    "performance"
+                  ],
+                  "properties": {
+                    "map_url": {
+                      "type": "string",
+                      "format": "uri"
+                    },
+                    "distance_miles": {
+                      "type": "string"
+                    },
+                    "total_fuel_cost_usd": {
+                      "type": "string"
+                    },
+                    "cost_basis": {
+                      "type": "string"
+                    },
+                    "fuel_stops": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "road_leg_distances_miles": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "geojson": {
+                      "type": "object"
+                    },
+                    "validation": {
+                      "type": "object"
+                    },
+                    "performance": {
+                      "type": "object"
+                    },
+                    "data": {
+                      "type": "object"
+                    },
+                    "warnings": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Structured input, coverage or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Structured input, coverage or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Structured input, coverage or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Structured input, coverage or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Structured input, coverage or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Structured input, coverage or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Structured input, coverage or dependency error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

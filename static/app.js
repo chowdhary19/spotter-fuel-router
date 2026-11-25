@@ -122,12 +122,28 @@ function show(result) {
     "Route checked against road distances. Cost covers fuel purchased on this trip.";
 }
 
+function parseLocation(value) {
+  const parts = value.trim().split(",").map((part) => part.trim());
+  const decimal = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/;
+  if (parts.length === 2 && parts.every((part) => decimal.test(part))) {
+    return { latitude: Number(parts[0]), longitude: Number(parts[1]) };
+  }
+  return value.trim();
+}
+
+function locationInput(location) {
+  return location.resolution?.startsWith("user-supplied coordinates")
+    ? `${location.latitude}, ${location.longitude}`
+    : location.label;
+}
+
 $("planner").addEventListener("submit", async (event) => {
   event.preventDefault();
   const body = {
-    start: $("start").value.trim(),
-    finish: $("finish").value.trim(),
+    start: parseLocation($("start").value),
+    finish: parseLocation($("finish").value),
     initial_fuel_gallons: Number($("initial").value),
+    reserve_gallons: Number($("reserve").value),
   };
   $("request").textContent = JSON.stringify(body, null, 2);
   $("response").textContent = "Waiting for the API response…";
@@ -162,9 +178,10 @@ $("planner").addEventListener("submit", async (event) => {
 
 if ($("saved-route")) {
   const saved = JSON.parse($("saved-route").textContent);
-  $("start").value = saved.start.label;
-  $("finish").value = saved.finish.label;
+  $("start").value = locationInput(saved.start);
+  $("finish").value = locationInput(saved.finish);
   $("initial").value = saved.initial_fuel_gallons;
+  $("reserve").value = saved.reserve_gallons;
   show(saved);
 }
 

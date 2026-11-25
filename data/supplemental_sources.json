@@ -1,0 +1,80 @@
+{
+  "source": "AllThePlaces",
+  "source_kind": "CC0 third-party snapshots derived from official business locators",
+  "license": "CC0-1.0",
+  "license_url": "https://github.com/alltheplaces/alltheplaces#license",
+  "documentation_url": "https://github.com/alltheplaces/alltheplaces/blob/master/API.md",
+  "reviewed_on": "2026-11-25",
+  "snapshots": [
+    {
+      "spider": "kwik_trip",
+      "filename": "kwik_trip.geojson",
+      "url": "https://alltheplaces-data.openaddresses.io/runs/2026-11-14-13-32-33/output/kwik_trip.geojson",
+      "sha256": "cf537ac22c3af9761251bdea7609128ed300e2367c82620f7a8f0f1dc8b9c338",
+      "bytes": 600388
+    },
+    {
+      "spider": "circle_k",
+      "filename": "circle_k.geojson",
+      "url": "https://alltheplaces-data.openaddresses.io/runs/2026-11-14-13-32-33/output/circle_k.geojson",
+      "sha256": "8410f6dfc69fb7a777a4f83f5abe172209fccec7e20194d784b2dca3d8527993",
+      "bytes": 5222038
+    },
+    {
+      "spider": "caseys_general_store_us",
+      "filename": "caseys_general_store_us.geojson",
+      "url": "https://alltheplaces-data.openaddresses.io/runs/2026-11-14-13-32-33/output/caseys_general_store_us.geojson",
+      "sha256": "0abd0b0e2350e2c28b663fe7196bcc523c9c785c7956370a976b59f0c612ba2b",
+      "bytes": 2786158
+    },
+    {
+      "spider": "speedway_us",
+      "filename": "speedway_us.geojson",
+      "url": "https://alltheplaces-data.openaddresses.io/runs/2026-11-14-13-32-33/output/speedway_us.geojson",
+      "sha256": "fec02d5789bfbda0880bc9205016abd29e9cf37a613d579d14a7ab7d9ec326ee",
+      "bytes": 1980793
+    },
+    {
+      "spider": "seven_eleven_ca_us",
+      "filename": "seven_eleven_ca_us.geojson",
+      "url": "https://alltheplaces-data.openaddresses.io/runs/2026-11-14-13-32-33/output/seven_eleven_ca_us.geojson",
+      "sha256": "630576794a6f9b40ed223ab88f6623fd47514cfbb44bdba0a361c5099775ff80",
+      "bytes": 10545135
+    },
+    {
+      "spider": "maverik",
+      "filename": "maverik.geojson",
+      "url": "https://alltheplaces-data.openaddresses.io/runs/2026-11-14-13-32-33/output/maverik.geojson",
+      "sha256": "f6ea3c5566cf260a691b0cbd76c8826ef3801f10d41334bb424eb3a99d6179f1",
+      "bytes": 549509
+    },
+    {
+      "spider": "cefco_us",
+      "filename": "cefco_us.geojson",
+      "url": "https://alltheplaces-data.openaddresses.io/runs/2026-11-07-13-32-32/output/cefco_us.geojson",
+      "sha256": "601ef7484a5a072f5c985dc9ff47bb727df02500b838c129166884a3767ede84",
+      "bytes": 74156
+    },
+    {
+      "spider": "sheetz",
+      "filename": "sheetz.geojson",
+      "url": "https://alltheplaces-data.openaddresses.io/runs/2026-11-14-13-32-33/output/sheetz.geojson",
+      "sha256": "b1597428e447efe2fd2ad4f54629c69633bdb09e71af6d2032b493ddf9ea70a1",
+      "bytes": 757053
+    },
+    {
+      "spider": "rutters_us",
+      "filename": "rutters_us.geojson",
+      "url": "https://alltheplaces-data.openaddresses.io/runs/2026-11-14-13-32-33/output/rutters_us.geojson",
+      "sha256": "da2f0b6ed669a1704e23fc0528f695177d37948c66a3cbd6576c527e2dc088e5",
+      "bytes": 57891
+    },
+    {
+      "spider": "roadys_us",
+      "filename": "roadys_us.geojson",
+      "url": "https://alltheplaces-data.openaddresses.io/runs/2026-10-31-13-32-34/output/roadys_us.geojson",
+      "sha256": "22edd0774269b74ff457e31144d2e322d1abc70c1b3f0c991409bdcaff852ce8",
+      "bytes": 219491
+    }
+  ]
+}

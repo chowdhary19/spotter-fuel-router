@@ -10,13 +10,14 @@ Use Python 3.13–3.15 and [uv](https://docs.astral.sh/uv/). The project pins **
 
 ```sh
 uv sync --locked --group data
-uv run --group data python scripts/prepare_data.py --fuel-csv /path/to/fuel-prices-for-be-assessment.csv
+uv run --group data python scripts/prepare_data.py \
+  --fuel-csv /path/to/fuel-prices-for-be-assessment.csv --download-supplemental-sources
 uv run python manage.py collectstatic --noinput
 uv run gunicorn config.wsgi:application --bind 127.0.0.1:8765 \
   --workers 1 --threads 4 --timeout 60 --no-control-socket
 ```
 
-Open **http://127.0.0.1:8765/**. No database or paid API key is needed. Preparation requires the assessment CSV and internet access to three official station directories; request-time routing uses the free OSRM service. The public repository excludes the employer's CSV and commercial station feeds and derived catalogs. [Data preparation and provenance](docs/data.md) explains how to rebuild them locally.
+Open **http://127.0.0.1:8765/**. No database or paid API key is needed. Preparation requires the assessment CSV, three official station directories and the pinned AllThePlaces locator snapshots; request-time routing uses the free OSRM service. The public repository excludes the employer's CSV and commercial station feeds and derived catalogs. [Data preparation and provenance](docs/data.md) explains how to rebuild them locally.
 
 Restart the server after rebuilding data: reference catalogs are cached in process. `GET /health/` checks local data readiness without calling the routing provider. Wait for it to report `ready` before sending demo traffic; cold initialization can take several seconds.
 
@@ -39,7 +40,9 @@ The response includes route miles, GeoJSON, `map_url`, fuel-stop locations and p
 
 **Cost is fuel bought during this trip.** The initial tank's historical cost is unknown and excluded. A short trip can consume fuel while requiring $0 of new purchases. An empty tank requires a verified pump reachable with zero driving distance; the origin never receives an invented price.
 
-`GET /` provides a browser demo. `GET /routes/<id>/map/` displays a cached map. Maps expire after one hour or process restart; repeat the API request to regenerate one. Import the [Postman collection](docs/spotter.postman_collection.json) for API demonstrations and response checks.
+`GET /` provides a browser map demo. **`GET /api/docs/` opens a local Swagger UI API client:** click **Try it out**, choose or edit the JSON request, and click **Execute**. No Postman installation or account is required. `GET /api/schema/` serves its OpenAPI contract; all Swagger assets are vendored with version and license information. The optional [Postman collection](docs/spotter.postman_collection.json) includes automated response checks.
+
+`GET /routes/<id>/map/` displays a cached map. Maps expire after one hour or process restart; repeat the API request to regenerate one. Saved maps preserve coordinate inputs, starting fuel and destination reserve when replanning.
 
 Errors use `{"error":{"code":"...","message":"...","details":{...}}}`. Invalid inputs return 400, oversized requests 413, unsupported content types 415, unavailable route/coverage 422, and provider or capacity failures 502/503/504. The API reports missing evidence rather than inventing a fuel stop or road distance.
 
@@ -53,7 +56,7 @@ An uncached trip requiring fuel uses **three provider calls**:
 
 A trip covered by its initial fuel and reserve needs **one call**; a cached request needs **zero**. Redirects and automatic retries are disabled, so a failure cannot silently exceed the three-call budget.
 
-Stations may enter the matrix with a broad search radius, but only points snapped within **25 metres** enter optimization. Final station waypoints also use that limit. Explicit endpoint coordinates use 25 metres; representative city points allow up to 5 km. Final legs must agree with the matrix within one metre, and the corresponding snapped points must remain consistent. These checks establish road-distance consistency and proximity, not driveway legality or fuel availability.
+Stations may enter the matrix with a broad search radius, but only points snapped within **25 metres** enter optimization. Final station waypoints also use that limit. Explicit endpoint coordinates use 25 metres; representative city points allow up to 5 km. Final legs must agree with the matrix within one metre, the corresponding snapped points must remain consistent, and route geometry endpoints must match their snapped endpoints within one metre. These checks establish road-distance consistency and proximity, not driveway legality or fuel availability.
 
 [`fuel/fuel_route_optimizer.py`](fuel/fuel_route_optimizer.py) minimizes purchase cost over the supplied directed graph, with distance and road-leg count as tie-breakers. It uses exact arithmetic and finite critical fuel states rather than rounding fuel into fixed buckets. Shortest-distance closure can concatenate provider segments, and every required transit waypoint is preserved. A separate [fixed-route optimizer](fuel/fixed_route_fuel_optimizer.py) recomputes purchases on the final itinerary.
 
@@ -79,7 +82,9 @@ OSRM reports lengths of its fastest paths, not every possible road alternative. 
 
 The full CSV contains 8,151 rows and 6,738 OPIS IDs. Excluding 620 Canadian rows leaves 7,531 rows for **6,626 US stations**. There are 487 US station IDs with conflicting prices and no timestamps or fuel-grade field. The planner preserves every quote and uses the maximum observed quote as a conservative planning convention. USD per US gallon is an explicit assumption; the source does not declare those units.
 
-The current local build has **1,394 accepted stations across 45 states**, leaving **5,232 unlocated US stations**. Matching uses official store/network identity, state and city, actual state polygons, and additional city-distance checks when available. City centers are never substituted for station locations.
+The reviewed local build has **2,363 accepted stations across all 48 contiguous states**, leaving **4,263 unlocated US stations**. Of these, 1,394 come from direct official directories and 969 from pinned AllThePlaces snapshots derived from business locators. Matching requires exact store/network identity (or a unique exact independent station name), state and city, state polygons, and a city-distance check when available. City centers are never substituted for station locations.
+
+**100% of CSV rows are audited; 35.66% of US station IDs have usable coordinate evidence.** The matched stations represent 2,853 of 7,531 US quote rows. Every unresolved station and quote remains in the local audit; it is unavailable to the routing calculation. Geographic presence in every contiguous state does not prove reachability for every trip.
 
 The source itself has no Alaska, Hawaii, or DC station rows, and only eight California stations, all in the southeast. Better geocoding alone cannot supply absent prices. A valid US endpoint therefore does not guarantee a feasible priced route. Missing stations can also hide cheaper alternatives. See [the data record](docs/data.md) for counts, sources, aliases, and rejection policy.
 
@@ -90,10 +95,10 @@ uv run ruff check .
 uv run ruff format --check .
 uv run python manage.py check
 uv run --group data pytest -q
-node --test tests/postman_contract.test.cjs
+node --test tests/*.test.cjs
 ```
 
-The offline suite includes independent exhaustive graph and fixed-route oracles, fuel/charge conservation, exact range boundaries, asymmetric/unreachable roads, detour choices, transit waypoints, source matching, API errors, and cache behavior. It does not require the assessment CSV or external routing. Current verification scope and the live-run recording procedure are in [docs/verification.md](docs/verification.md).
+The offline suite includes independent exhaustive graph and fixed-route oracles, fuel/charge conservation, exact range boundaries, asymmetric/unreachable roads, detour choices, transit waypoints, source matching, API errors, and cache behavior. It does not require the assessment CSV or external routing. The suite also includes 200 HTTP integration scenarios, 133 with an independent exhaustive cost oracle. Controlled dependency failures are checked as expected errors, not counted as successful routes. Current verification scope and the live-run reconciliation procedure are in [docs/verification.md](docs/verification.md).
 
 ## Operating limits
 
